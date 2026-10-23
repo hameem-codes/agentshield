@@ -98,6 +98,9 @@ export const App: React.FC = () => {
               <span className="text-[10px] font-mono uppercase bg-[#17150d] text-[#3ddc97] px-1.5 py-0.5 border border-[#3ddc97]/40 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#3ddc97] animate-pulse"></span>
                 [live] API online
+                {(typeof window !== "undefined" && window.location.hostname.includes("vercel.app")) || import.meta.env.VITE_VERCEL ? (
+                  <span className="text-[#f3b82b] ml-1">(demo: history resets)</span>
+                ) : null}
               </span>
             ) : (
               <span className="text-[10px] font-mono uppercase bg-[#17150d] text-[#ff8fb1] px-1.5 py-0.5 border border-[#ff8fb1]/40 flex items-center gap-1">

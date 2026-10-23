@@ -84,6 +84,7 @@ def create_app(audit_db_path: Optional[str] = None) -> FastAPI:
     app.state.sandbox_counters = sandbox_counters
 
     @app.get("/health", response_model=HealthResponse)
+    @app.get("/api/health", response_model=HealthResponse)
     def health():
         return HealthResponse(
             status="healthy",
@@ -92,6 +93,7 @@ def create_app(audit_db_path: Optional[str] = None) -> FastAPI:
         )
 
     @app.post("/check", response_model=DecisionResponse)
+    @app.post("/api/check", response_model=DecisionResponse)
     def check_input(req: CheckRequest):
         decision = shield.check(req.text)
         return DecisionResponse(
@@ -105,6 +107,7 @@ def create_app(audit_db_path: Optional[str] = None) -> FastAPI:
         )
 
     @app.post("/authorize", response_model=DecisionResponse)
+    @app.post("/api/authorize", response_model=DecisionResponse)
     def authorize_action(req: AuthorizeRequest):
         decision = shield.authorize(
             agent=req.agent,
@@ -123,6 +126,7 @@ def create_app(audit_db_path: Optional[str] = None) -> FastAPI:
         )
 
     @app.post("/execute", response_model=ExecutionResponse)
+    @app.post("/api/execute", response_model=ExecutionResponse)
     def execute_action(req: ExecuteRequest):
         res = shield.execute(
             agent=req.agent,
@@ -147,6 +151,7 @@ def create_app(audit_db_path: Optional[str] = None) -> FastAPI:
         )
 
     @app.get("/events", response_model=EventsResponse)
+    @app.get("/api/events", response_model=EventsResponse)
     def list_events(
         decision: Optional[str] = None,
         agent: Optional[str] = None,

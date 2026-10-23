@@ -85,7 +85,14 @@ class SQLiteAuditStore(AuditStore):
     """Thread-safe SQLite audit storage implementation."""
 
     def __init__(self, db_path: Optional[str] = None):
-        self.db_path = db_path or os.environ.get("AGENTSHIELD_AUDIT_DB", "agentshield_audit.db")
+        if db_path:
+            self.db_path = db_path
+        elif "AGENTSHIELD_AUDIT_DB" in os.environ:
+            self.db_path = os.environ["AGENTSHIELD_AUDIT_DB"]
+        elif os.environ.get("VERCEL"):
+            self.db_path = "/tmp/agentshield_audit.db"
+        else:
+            self.db_path = "agentshield_audit.db"
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
