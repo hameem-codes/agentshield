@@ -25,9 +25,10 @@ class ExecutionResult:
         self.error = error
 
 from agentshield.risk.engine import RiskEngine
+from agentshield.audit.store import AuditStore, SQLiteAuditStore
 
 class Shield:
-    def __init__(self, risk_engine: Optional[RiskEngine] = None):
+    def __init__(self, risk_engine: Optional[RiskEngine] = None, audit_store: Optional[AuditStore] = None):
         self.registry = ToolRegistry()
         config = PolicyConfiguration(
             agents={
@@ -44,6 +45,7 @@ class Shield:
         )
         self.policy_engine = PolicyEngine(config)
         self.risk_engine = risk_engine or RiskEngine()
+        self.audit_store = audit_store
 
     def check(self, user_input: str) -> Decision:
         risk_result = self.risk_engine.evaluate(user_input=user_input)
@@ -159,18 +161,32 @@ class Shield:
     def execute(self, agent: str, tool: str, arguments: Optional[Dict[str, Any]] = None, permissions: Optional[List[str]] = None) -> ExecutionResult:
         decision = self.authorize(agent, tool, arguments, permissions)
         if decision.decision != DecisionValue.ALLOW or not decision.allowed:
-            return ExecutionResult(decision=decision, execution_status=ExecutionStatus.NOT_EXECUTED, tool_result=None)
+            result = ExecutionResult(decision=decision, execution_status=ExecutionStatus.NOT_EXECUTED, tool_result=None)
+            if self.audit_store:
+                self.audit_store.log_decision(decision, arguments, execution_status="not_executed")
+            return result
             
         registered_tool = self.registry.get_tool(tool)
         if not registered_tool:
-            return ExecutionResult(decision=decision, execution_status=ExecutionStatus.NOT_EXECUTED, tool_result=None, error=f"Tool {tool} not found in registry")
+            err = f"Tool {tool} not found in registry"
+            result = ExecutionResult(decision=decision, execution_status=ExecutionStatus.NOT_EXECUTED, tool_result=None, error=err)
+            if self.audit_store:
+                self.audit_store.log_decision(decision, arguments, execution_status="not_executed", error=err)
+            return result
 
         args = arguments or {}
         try:
-            result = registered_tool.callable_func(args)
-            return ExecutionResult(decision=decision, execution_status=ExecutionStatus.EXECUTED, tool_result=result)
+            res = registered_tool.callable_func(args)
+            result = ExecutionResult(decision=decision, execution_status=ExecutionStatus.EXECUTED, tool_result=res)
+            if self.audit_store:
+                self.audit_store.log_decision(decision, arguments, execution_status="executed")
+            return result
         except Exception as e:
-            return ExecutionResult(decision=decision, execution_status=ExecutionStatus.ERROR, tool_result=None, error=str(e))
+            err_msg = str(e)
+            result = ExecutionResult(decision=decision, execution_status=ExecutionStatus.ERROR, tool_result=None, error=err_msg)
+            if self.audit_store:
+                self.audit_store.log_decision(decision, arguments, execution_status="error", error=err_msg)
+            return result
 
     def _build_decision(self, allowed: bool, decision: DecisionValue, reasons: list[str],
                         risk_score: float, severity: RiskLevel, agent: str, tool: str) -> Decision:

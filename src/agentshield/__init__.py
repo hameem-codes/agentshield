@@ -2,6 +2,7 @@
 from .shield import Shield, ExecutionResult, ExecutionStatus
 from .risk import RiskEngine
 from .detector import PromptInjectionDetector, InjectionFinding
+from .audit import AuditStore, SQLiteAuditStore, AuditRecord
 
 __all__ = [
     "Shield",
@@ -10,4 +11,7 @@ __all__ = [
     "RiskEngine",
     "PromptInjectionDetector",
     "InjectionFinding",
+    "AuditStore",
+    "SQLiteAuditStore",
+    "AuditRecord",
 ]
