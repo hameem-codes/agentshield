@@ -12,16 +12,31 @@ import {
   INITIAL_DENIED_REQUESTS,
   INITIAL_EXPIRED_REQUESTS,
 } from './reviewData';
+import { type TimeRangeKey } from '../../data/dashboardTimeRanges';
 import type { ReviewRequest, ReviewStatus, ReviewFilterState } from './reviewTypes';
 
 interface ReviewViewProps {
   onRefreshGlobal?: () => void;
   isRefreshingGlobal?: boolean;
+  selectedTimeRange?: TimeRangeKey;
+  onSelectTimeRange?: (range: TimeRangeKey) => void;
 }
+
+const REVIEW_STATS_BY_RANGE: Record<
+  TimeRangeKey,
+  { pending: number; approved: number; denied: number; expired: number }
+> = {
+  'Last 24 Hours': { pending: 2, approved: 8, denied: 4, expired: 1 },
+  'Last 7 Days': { pending: 6, approved: 38, denied: 21, expired: 4 },
+  'Last 30 Days': { pending: 14, approved: 162, denied: 88, expired: 19 },
+  'This Month': { pending: 11, approved: 124, denied: 67, expired: 14 },
+};
 
 export const ReviewView: React.FC<ReviewViewProps> = ({
   onRefreshGlobal,
   isRefreshingGlobal = false,
+  selectedTimeRange = 'Last 7 Days',
+  onSelectTimeRange,
 }) => {
   // Datasets for all 4 statuses
   const [pendingList, setPendingList] = useState<ReviewRequest[]>(INITIAL_PENDING_REQUESTS);
@@ -29,10 +44,16 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
   const [deniedList, setDeniedList] = useState<ReviewRequest[]>(INITIAL_DENIED_REQUESTS);
   const [expiredList] = useState<ReviewRequest[]>(INITIAL_EXPIRED_REQUESTS);
 
-  // Initial base offsets matching IMAGE B exact counts (Pending: 6, Approved: 38, Denied: 21, Expired: 4)
-  const approvedCountOffset = 37; // 1 initial item + 37 = 38
-  const deniedCountOffset = 20;   // 1 initial item + 20 = 21
-  const expiredCountOffset = 3;   // 1 initial item + 3 = 4
+  const [localDateRange, setLocalDateRange] = useState<TimeRangeKey>(selectedTimeRange);
+  const activeDateRange = selectedTimeRange || localDateRange;
+
+  const handleDateRangeChange = (rangeStr: string) => {
+    const key = rangeStr as TimeRangeKey;
+    setLocalDateRange(key);
+    if (onSelectTimeRange) {
+      onSelectTimeRange(key);
+    }
+  };
 
   // Status Tab
   const [currentStatus, setCurrentStatus] = useState<ReviewStatus>('Pending');
@@ -54,7 +75,6 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
     sortBy: 'Newest',
   });
 
-  const [dateRange, setDateRange] = useState('Last 7 Days');
   const [localRefreshing, setLocalRefreshing] = useState(false);
   const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
 
@@ -82,15 +102,17 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
     }
   };
 
-  // Open (or swap) the review portal with an enter animation
+  // Open the review portal
   const handleSelectRequest = (req: ReviewRequest) => {
     cancelCloseTimer();
     setIsDetailsClosing(false);
     setSelectedRequest(req);
-    setIsMobileDetailsOpen(true);
+    if (window.innerWidth < 1024) {
+      setIsMobileDetailsOpen(true);
+    }
   };
 
-  // Play the exit animation, then unmount the portal
+  // Close the review portal with slide-out transition
   const handleCloseDetails = () => {
     cancelCloseTimer();
     setIsDetailsClosing(true);
@@ -119,11 +141,23 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
     });
   };
 
-  // Active dataset based on tab
+  // Range-driven statistics
+  const stats = REVIEW_STATS_BY_RANGE[activeDateRange] || REVIEW_STATS_BY_RANGE['Last 7 Days'];
+
+  // Pending count reflects current pending queue adjusted by timeframe
+  const pendingCount =
+    activeDateRange === 'Last 24 Hours'
+      ? Math.min(2, pendingList.length)
+      : Math.max(pendingList.length, stats.pending);
+  const approvedCount = stats.approved + (approvedList.length - 1);
+  const deniedCount = stats.denied + (deniedList.length - 1);
+  const expiredCount = stats.expired;
+
+  // Active dataset based on tab and active time range
   const activeDataset = useMemo(() => {
     switch (currentStatus) {
       case 'Pending':
-        return pendingList;
+        return activeDateRange === 'Last 24 Hours' ? pendingList.slice(0, 2) : pendingList;
       case 'Approved':
         return approvedList;
       case 'Denied':
@@ -131,7 +165,7 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
       case 'Expired':
         return expiredList;
     }
-  }, [currentStatus, pendingList, approvedList, deniedList, expiredList]);
+  }, [currentStatus, pendingList, approvedList, deniedList, expiredList, activeDateRange]);
 
   // Filtered & Sorted records
   const filteredRequests = useMemo(() => {
@@ -185,59 +219,45 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
     });
   }, [activeDataset, filters]);
 
-  // Handle Approve
+  // Approval handler
   const handleApprove = (req: ReviewRequest) => {
-    // 1. Remove from pending
-    const remainingPending = pendingList.filter((item) => item.id !== req.id);
-    setPendingList(remainingPending);
-
-    // 2. Add to approved
-    const updatedReq: ReviewRequest = { ...req, status: 'Approved', expiresIn: 'Approved' };
-    setApprovedList((prev) => [updatedReq, ...prev]);
-
-    // 3. Select next pending request if available
-    if (remainingPending.length > 0) {
-      cancelCloseTimer();
-      setIsDetailsClosing(false);
-      setSelectedRequest(remainingPending[0]);
-    } else {
-      handleCloseDetails();
-    }
-
-    showNotification(`Request ${req.id} approved successfully.`);
+    setPendingList((prev) => prev.filter((r) => r.id !== req.id));
+    setApprovedList((prev) => [
+      {
+        ...req,
+        status: 'Approved',
+        approvedBy: 'Admin (You)',
+        approvedAt: 'Just now',
+        approvedAtTimestamp: Date.now(),
+      },
+      ...prev,
+    ]);
+    handleCloseDetails();
+    showNotification(`Request ${req.id} Approved Successfully.`);
   };
 
-  // Handle Deny Trigger
+  // Denial modal opening
   const handleDenyClick = (req: ReviewRequest) => {
     setDenyingRequest(req);
   };
 
-  // Handle Deny Confirm
+  // Confirmed denial
   const handleConfirmDeny = (req: ReviewRequest, reason: string) => {
-    // 1. Remove from pending
-    const remainingPending = pendingList.filter((item) => item.id !== req.id);
-    setPendingList(remainingPending);
-
-    // 2. Add to denied
-    const updatedReq: ReviewRequest = {
-      ...req,
-      status: 'Denied',
-      expiresIn: 'Denied',
-      riskFactors: `Denied: ${reason}`,
-    };
-    setDeniedList((prev) => [updatedReq, ...prev]);
-
-    // 3. Select next pending request
-    if (remainingPending.length > 0) {
-      cancelCloseTimer();
-      setIsDetailsClosing(false);
-      setSelectedRequest(remainingPending[0]);
-    } else {
-      handleCloseDetails();
-    }
-
+    setPendingList((prev) => prev.filter((r) => r.id !== req.id));
+    setDeniedList((prev) => [
+      {
+        ...req,
+        status: 'Denied',
+        deniedBy: 'Admin (You)',
+        deniedReason: reason,
+        deniedAt: 'Just now',
+        deniedAtTimestamp: Date.now(),
+      },
+      ...prev,
+    ]);
     setDenyingRequest(null);
-    showNotification(`Request ${req.id} was denied (${reason}).`);
+    handleCloseDetails();
+    showNotification(`Request ${req.id} Denied (${reason}).`);
   };
 
   const handleRefresh = () => {
@@ -249,7 +269,7 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
   };
 
   return (
-    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col justify-between">
+    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col gap-3.5">
       {/* ACTION NOTIFICATION TOAST */}
       {actionNotification && (
         <div className="fixed top-20 right-8 z-50 px-4 py-2.5 rounded-xl bg-[#221c45] border border-[#6d3ee8] text-white text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -270,16 +290,16 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
           <ReviewPageHeader
             onRefresh={handleRefresh}
             isRefreshing={localRefreshing || isRefreshingGlobal}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
+            dateRange={activeDateRange}
+            onDateRangeChange={handleDateRangeChange}
           />
 
           {/* 2. KPI CARDS */}
           <ReviewKpiSection
-            pendingCount={pendingList.length}
-            approvedCount={approvedList.length + approvedCountOffset}
-            deniedCount={deniedList.length + deniedCountOffset}
-            expiredCount={expiredList.length + expiredCountOffset}
+            pendingCount={pendingCount}
+            approvedCount={approvedCount}
+            deniedCount={deniedCount}
+            expiredCount={expiredCount}
           />
 
           {/* 3. STATUS TABS */}
@@ -287,13 +307,12 @@ export const ReviewView: React.FC<ReviewViewProps> = ({
             currentStatus={currentStatus}
             onSelectStatus={(status) => {
               setCurrentStatus(status);
-              // Close the portal when switching status tabs
               if (selectedRequest) handleCloseDetails();
             }}
-            pendingCount={pendingList.length}
-            approvedCount={approvedList.length + approvedCountOffset}
-            deniedCount={deniedList.length + deniedCountOffset}
-            expiredCount={expiredList.length + expiredCountOffset}
+            pendingCount={pendingCount}
+            approvedCount={approvedCount}
+            deniedCount={deniedCount}
+            expiredCount={expiredCount}
           />
 
           {/* 4. FILTER TOOLBAR */}

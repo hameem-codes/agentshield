@@ -19,15 +19,15 @@ export const ReviewToolbar: React.FC<ReviewToolbarProps> = ({
     setOpenDropdown((prev) => (prev === name ? null : name));
   };
 
-  const agents = ['All', 'research-agent', 'data-agent', 'email-agent', 'ops-agent'];
+  const agents = ['All', 'Research-Agent', 'Data-Agent', 'Email-Agent', 'Ops-Agent'];
   const tools = [
     'All',
-    'read_web',
-    'export_db',
-    'send_email',
-    'api_call',
-    'update_record',
-    'download_file',
+    'Read_Web',
+    'Export_Db',
+    'Send_Email',
+    'Api_Call',
+    'Update_Record',
+    'Download_File',
   ];
   const riskScores = ['All', 'High (75+)', 'Medium (40-74)', 'Low (0-39)'];
   const sortOptions: ReviewFilterState['sortBy'][] = [

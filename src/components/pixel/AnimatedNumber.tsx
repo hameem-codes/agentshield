@@ -27,7 +27,7 @@ const prefersReducedMotion =
 export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   value,
   decimals = 0,
-  duration = 900,
+  duration = 240,
   prefix = '',
   suffix = '',
   className = '',
@@ -35,14 +35,15 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
 }) => {
   const shouldAnimate = animate && !prefersReducedMotion;
 
-  const [display, setDisplay] = useState(shouldAnimate ? 0 : value);
-  const displayRef = useRef(shouldAnimate ? 0 : value);
+  const [display, setDisplay] = useState(value);
+  const displayRef = useRef(value);
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!shouldAnimate) return;
+    if (!shouldAnimate) { setDisplay(value); displayRef.current = value; return; }
 
     const from = displayRef.current;
+    if (from === value) return;
     const to = value;
     let startTime: number | null = null;
 

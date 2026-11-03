@@ -1,5 +1,6 @@
 import React from 'react';
-import { PixelStarShieldBadgeIcon, PixelInfoIcon } from '../pixel/PixelIcons';
+import { PixelStarShieldBadgeIcon } from '../pixel/PixelIcons';
+import { PixelInfoTooltip } from '../pixel/PixelInfoTooltip';
 import { AnimatedNumber } from '../pixel/AnimatedNumber';
 import type { BenchmarkRunRecord } from './benchmarkTypes';
 import { getComparisonMetrics } from './benchmarkData';
@@ -10,7 +11,7 @@ interface BaselineVsProtectedPanelProps {
 
 export const BaselineVsProtectedPanel: React.FC<BaselineVsProtectedPanelProps> = ({ currentRun }) => {
   const metrics = getComparisonMetrics(currentRun);
-  const [showTooltip, setShowTooltip] = React.useState(false);
+
 
   return (
     <div className="relative p-[1.5px] bg-[#3a3273] hover:bg-[#453c85] pixel-corners shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-colors duration-150 h-full flex flex-col">
@@ -22,23 +23,11 @@ export const BaselineVsProtectedPanel: React.FC<BaselineVsProtectedPanelProps> =
             <span className="text-sm font-bold text-white tracking-wide">
               Baseline vs Protected
             </span>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowTooltip(!showTooltip)}
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-                className="text-[#847ea8] hover:text-[#c4bbf0] transition-colors cursor-pointer"
-                title="About comparison metrics"
-              >
-                <PixelInfoIcon size={14} />
-              </button>
-              {showTooltip && (
-                <div className="absolute left-0 top-6 w-64 p-2.5 bg-[#1b1739] border border-[#443a7b] rounded-lg shadow-xl text-[11px] text-[#ded9f5] z-30 leading-relaxed pointer-events-none">
-                  Compares baseline execution without guardrails vs protected execution under AgentShield runtime policies.
-                </div>
-              )}
-            </div>
+            <PixelInfoTooltip
+              title="Baseline vs Protected"
+              content="Compares baseline execution without guardrails vs protected execution under AgentShield runtime policies."
+              align="left"
+            />
           </div>
 
           {/* LEGEND */}

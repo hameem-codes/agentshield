@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowUpDown,
   MoreHorizontal,
@@ -45,8 +46,39 @@ export const EventsTable: React.FC<EventsTableProps> = ({
   onToggleSort,
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<{
+    id: string;
+    event: SecurityEventRecord;
+    top?: number;
+    bottom?: number;
+    right: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!activeMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-events-actions-menu]')) return;
+      setActiveMenu(null);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveMenu(null);
+    };
+    const handleScrollOrResize = () => {
+      setActiveMenu(null);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [activeMenu]);
 
   const isAllSelected =
     events.length > 0 && events.every((e) => selectedIds.has(e.id));
@@ -75,13 +107,14 @@ export const EventsTable: React.FC<EventsTableProps> = ({
   // Pagination calculation
   const startRecord = (currentPage - 1) * pageSize + 1;
   const endRecord = Math.min(currentPage * pageSize, totalCount);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
     <div className="relative p-[1.5px] bg-[#3a3273] pixel-corners shadow-[0_4px_24px_rgba(0,0,0,0.45)]">
       <div className="w-full bg-[#16142e] pixel-corners flex flex-col">
         {/* HORIZONTALLY SCROLLABLE TABLE CONTAINER */}
         <div className="w-full overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1100px]">
+          <table className="w-full text-left border-collapse min-w-[880px] lg:min-w-[940px]">
             {/* TABLE HEADER */}
             <thead>
               <tr className="border-b border-[#292352] text-[#dcd7f2] text-xs font-semibold select-none bg-[#16142e]">
@@ -134,7 +167,9 @@ export const EventsTable: React.FC<EventsTableProps> = ({
                 <th className="py-3 px-3.5 whitespace-nowrap">Policy</th>
 
                 {/* 10. Actions Header */}
-                <th className="py-3 px-3.5 w-12 text-center"></th>
+                <th className="sticky right-0 z-20 bg-[#16142e] border-l border-[#292352] shadow-[-6px_0_12px_rgba(0,0,0,0.5)] py-3 px-2 w-12 text-center text-xs font-semibold text-[#8e87bf]">
+                  <span>···</span>
+                </th>
               </tr>
             </thead>
 
@@ -264,65 +299,44 @@ export const EventsTable: React.FC<EventsTableProps> = ({
                         {evt.policy}
                       </td>
 
-                      {/* Actions Menu */}
+                      {/* Sticky Actions Menu (Never scrolls away, always visible) */}
                       <td
-                        className="py-3 px-3.5 text-center relative"
+                        className={`sticky right-0 z-10 ${
+                          isChecked ? 'bg-[#221b47]' : 'bg-[#16142e]'
+                        } group-hover:bg-[#1d193d] border-l border-[#221e45] shadow-[-6px_0_12px_rgba(0,0,0,0.5)] py-3 px-2 text-center`}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
-                          onClick={() =>
-                            setActiveMenuId(activeMenuId === evt.id ? null : evt.id)
-                          }
-                          className="flex items-center justify-center w-7 h-7 rounded-lg text-[#8b84bc] hover:text-white hover:bg-[#25204c] transition-colors mx-auto"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeMenu?.id === evt.id) {
+                              setActiveMenu(null);
+                              return;
+                            }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const menuEstimatedHeight = 220;
+                            const spaceBelow = window.innerHeight - rect.bottom;
+                            const spaceAbove = rect.top;
+                            const openUp = spaceBelow < menuEstimatedHeight && spaceAbove > 160;
+                            setActiveMenu({
+                              id: evt.id,
+                              event: evt,
+                              top: openUp ? undefined : Math.round(rect.bottom + 6),
+                              bottom: openUp ? Math.round(window.innerHeight - rect.top + 6) : undefined,
+                              right: Math.max(16, Math.round(window.innerWidth - rect.right)),
+                            });
+                          }}
+                          className={`flex items-center justify-center w-7 h-7 rounded-lg text-[#8b84bc] hover:text-white transition-colors mx-auto cursor-pointer ${
+                            activeMenu?.id === evt.id
+                              ? 'bg-[#40337d] text-white shadow-xs'
+                              : 'hover:bg-[#25204c]'
+                          }`}
+                          title="Actions menu"
+                          aria-label={`Actions for ${evt.id}`}
                         >
                           <MoreHorizontal size={15} />
                         </button>
-
-                        {/* Menu Dropdown */}
-                        {activeMenuId === evt.id && (
-                          <div className="absolute right-3 top-10 w-44 p-1 bg-[#191637] border border-[#3e3678] rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 text-left">
-                            <button
-                              onClick={() => {
-                                onSelectEvent(evt);
-                                setActiveMenuId(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#aaa4d4] hover:bg-[#25204c] hover:text-white"
-                            >
-                              <Eye size={13} />
-                              <span>View Details</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(evt.id);
-                                setActiveMenuId(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#aaa4d4] hover:bg-[#25204c] hover:text-white"
-                            >
-                              <Copy size={13} />
-                              <span>Copy Event ID</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                onFilterByAgent(evt.agent);
-                                setActiveMenuId(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#aaa4d4] hover:bg-[#25204c] hover:text-white"
-                            >
-                              <Filter size={13} />
-                              <span>Filter by Agent</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                onFilterByTool(evt.tool);
-                                setActiveMenuId(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#aaa4d4] hover:bg-[#25204c] hover:text-white"
-                            >
-                              <Filter size={13} />
-                              <span>Filter by Tool</span>
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   );
@@ -334,11 +348,11 @@ export const EventsTable: React.FC<EventsTableProps> = ({
 
         {/* PAGINATION FOOTER */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-[#292352] bg-[#16142e] text-xs select-none">
-          {/* Showing 1-8 of 3,842 events */}
+          {/* Showing 1-8 of 3,842 Events */}
           <div className="text-[#9c96c9] font-medium">
             Showing <span className="text-white font-mono"><AnimatedNumber value={startRecord} /></span>–
             <span className="text-white font-mono"><AnimatedNumber value={endRecord} /></span> of{' '}
-            <span className="text-white font-mono"><AnimatedNumber value={totalCount} /></span> events
+            <span className="text-white font-mono"><AnimatedNumber value={totalCount} /></span> Events
           </div>
 
           {/* Controls: Rows per page + Page numbers */}
@@ -408,20 +422,20 @@ export const EventsTable: React.FC<EventsTableProps> = ({
 
               {/* Last Page (480) */}
               <button
-                onClick={() => onPageChange(480)}
+                onClick={() => onPageChange(totalPages)}
                 className={`flex items-center justify-center min-w-[28px] h-7 px-1.5 rounded-lg font-mono text-xs font-semibold transition-colors ${
-                  currentPage === 480
+                  currentPage === totalPages
                     ? 'bg-[#2b1f59] border border-[#6d3ee8] text-white'
                     : 'text-[#9c96c9] hover:text-white hover:bg-[#1f1b3e]'
                 }`}
               >
-                480
+                {totalPages}
               </button>
 
               {/* Next Button */}
               <button
-                onClick={() => onPageChange(Math.min(480, currentPage + 1))}
-                disabled={currentPage === 480}
+                onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage >= totalPages}
                 className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#1a1738] border border-[#3b3472] text-[#8e87bf] hover:text-white hover:border-[#584ea4] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight size={14} />
@@ -430,6 +444,69 @@ export const EventsTable: React.FC<EventsTableProps> = ({
           </div>
         </div>
       </div>
+      {/* Portaled Actions Dropdown Menu (Never clipped by scroll or clip-path) */}
+      {activeMenu &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            data-events-actions-menu="true"
+            style={{
+              position: 'fixed',
+              top: activeMenu.top !== undefined ? `${activeMenu.top}px` : undefined,
+              bottom: activeMenu.bottom !== undefined ? `${activeMenu.bottom}px` : undefined,
+              right: `${activeMenu.right}px`,
+              zIndex: 99999,
+            }}
+            className="w-52 p-2 bg-[#15122e] border-2 border-[#544499] rounded-xl shadow-[0_16px_40px_rgba(0,0,0,0.9),0_0_20px_rgba(109,62,232,0.4)] animate-in fade-in zoom-in-95 duration-100 text-left select-none overflow-y-auto max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-2 py-1 mb-1 border-b border-[#2d255d] text-[10.5px] font-mono text-[#a59ecd] flex items-center justify-between">
+              <span className="font-bold text-white font-mono">{activeMenu.event.id}</span>
+              <span className="text-[9.5px] text-[#736a9c] uppercase font-mono tracking-wider">Actions</span>
+            </div>
+            <button
+              onClick={() => {
+                onSelectEvent(activeMenu.event);
+                setActiveMenu(null);
+              }}
+              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#c4bcf0] hover:bg-[#282153] hover:text-white transition-colors cursor-pointer"
+            >
+              <Eye size={13} className="text-[#a855f7]" />
+              <span>Inspect Event</span>
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(activeMenu.event.id);
+                setActiveMenu(null);
+              }}
+              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#c4bcf0] hover:bg-[#282153] hover:text-white transition-colors cursor-pointer"
+            >
+              <Copy size={13} className="text-[#86efac]" />
+              <span>Copy Event ID</span>
+            </button>
+            <button
+              onClick={() => {
+                onFilterByAgent(activeMenu.event.agent);
+                setActiveMenu(null);
+              }}
+              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#c4bcf0] hover:bg-[#282153] hover:text-white transition-colors cursor-pointer"
+            >
+              <Filter size={13} className="text-[#38bdf8]" />
+              <span>Filter by Agent</span>
+            </button>
+            <button
+              onClick={() => {
+                onFilterByTool(activeMenu.event.tool);
+                setActiveMenu(null);
+              }}
+              className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#c4bcf0] hover:bg-[#282153] hover:text-white transition-colors cursor-pointer"
+            >
+              <Filter size={13} className="text-[#facc15]" />
+              <span>Filter by Tool: <strong className="text-white font-mono">{activeMenu.event.tool}</strong></span>
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

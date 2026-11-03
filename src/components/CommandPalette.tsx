@@ -29,11 +29,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   const commands = [
-    { id: '1', title: 'research-agent', subtitle: 'Agent • Active • Research v2', category: 'Agents', icon: PixelRobotIcon },
-    { id: '2', title: 'email-agent', subtitle: 'Agent • Paused • Restricted v1', category: 'Agents', icon: PixelRobotIcon },
-    { id: '3', title: 'ops-agent', subtitle: 'Agent • Active • Operations v1', category: 'Agents', icon: PixelRobotIcon },
-    { id: '4', title: 'email-agent · send_email (Risk 87)', subtitle: 'Blocked Event • Unauthorized egress', category: 'Events', icon: PixelCrossShieldIcon },
-    { id: '5', title: 'ops-agent · list_files (Risk 68)', subtitle: 'Review Event • Sensitive secrets inspection', category: 'Events', icon: PixelCrossShieldIcon },
+    { id: '1', title: 'Research-Agent', subtitle: 'Agent • Active • Research v2', category: 'Agents', icon: PixelRobotIcon },
+    { id: '2', title: 'Email-Agent', subtitle: 'Agent • Paused • Restricted v1', category: 'Agents', icon: PixelRobotIcon },
+    { id: '3', title: 'Ops-Agent', subtitle: 'Agent • Active • Operations v1', category: 'Agents', icon: PixelRobotIcon },
+    { id: '4', title: 'Email-Agent · Send_Email (Risk 87)', subtitle: 'Blocked Event • Unauthorized egress', category: 'Events', icon: PixelCrossShieldIcon },
+    { id: '5', title: 'Ops-Agent · List_Files (Risk 68)', subtitle: 'Review Event • Sensitive secrets inspection', category: 'Events', icon: PixelCrossShieldIcon },
     { id: '6', title: 'Research v2 Sandbox Rules', subtitle: 'Policy • Outbound web whitelist', category: 'Policies', icon: PixelSlidersIcon },
     { id: '7', title: 'Restricted v1 Policy Definitions', subtitle: 'Policy • Strict egress gating', category: 'Policies', icon: PixelSlidersIcon },
   ];
@@ -111,8 +111,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         {/* Footer shortcuts */}
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#2a2456] bg-[#14122b] text-[11px] text-[#716a9c]">
-          <span>Navigation: <kbd className="px-1.5 py-0.5 bg-[#201d42] rounded text-[#a59fcf]">↑</kbd> <kbd className="px-1.5 py-0.5 bg-[#201d42] rounded text-[#a59fcf]">↓</kbd> to navigate</span>
-          <span>Press <kbd className="px-1.5 py-0.5 bg-[#201d42] rounded text-[#a59fcf]">ESC</kbd> to exit</span>
+          <span>Navigation: <kbd className="px-1.5 py-0.5 bg-[#201d42] rounded text-[#a59fcf]">↑</kbd> <kbd className="px-1.5 py-0.5 bg-[#201d42] rounded text-[#a59fcf]">↓</kbd> To Navigate</span>
+          <span>Press <kbd className="px-1.5 py-0.5 bg-[#201d42] rounded text-[#a59fcf]">ESC</kbd> To Exit</span>
         </div>
       </div>
     </div>

@@ -20,7 +20,7 @@ export const EventsPageHeader: React.FC<EventsPageHeaderProps> = ({
   const [dateRangeOpen, setDateRangeOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
-  const ranges = ['Last 24 Hours', 'Last 7 Days', 'Last 30 Days', 'All Time'];
+  const ranges = ['Last 24 Hours', 'Last 7 Days', 'Last 30 Days', 'This Month'];
 
   return (
     <div className="relative pt-2 pb-3.5">

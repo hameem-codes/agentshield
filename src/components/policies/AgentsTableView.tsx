@@ -3,15 +3,35 @@ import { Search, ExternalLink, Shield } from 'lucide-react';
 import { ALL_ASSIGNED_AGENTS_SUMMARY } from './policyData';
 import { PixelRobotIcon } from '../pixel/PixelIcons';
 import { AnimatedNumber } from '../pixel/AnimatedNumber';
+import { DASHBOARD_TIME_RANGES, type TimeRangeKey } from '../../data/dashboardTimeRanges';
 
 interface AgentsTableViewProps {
   onSelectPolicyByName: (policyName: string) => void;
+  selectedTimeRange?: TimeRangeKey;
 }
+
+const AGENT_COUNT_MULTIPLIERS: Record<TimeRangeKey, number> = {
+  'Last 24 Hours': 0.147,
+  'Last 7 Days': 1.0,
+  'Last 30 Days': 4.27,
+  'This Month': 3.17,
+};
 
 export const AgentsTableView: React.FC<AgentsTableViewProps> = ({
   onSelectPolicyByName,
+  selectedTimeRange = 'Last 7 Days',
 }) => {
   const [search, setSearch] = useState('');
+
+  const currentRangeData = DASHBOARD_TIME_RANGES[selectedTimeRange] || DASHBOARD_TIME_RANGES['Last 7 Days'];
+  const columnHeader = currentRangeData.agents.columnLabel;
+
+  const getAgentEvents = (agentId: string, baseCount: number) => {
+    const match = currentRangeData.agents.list.find((a) => a.id === agentId);
+    if (match) return match.eventsCount;
+    const mult = AGENT_COUNT_MULTIPLIERS[selectedTimeRange] || 1.0;
+    return Math.round(baseCount * mult);
+  };
 
   const filteredAgents = ALL_ASSIGNED_AGENTS_SUMMARY.filter((ag) => {
     if (!search.trim()) return true;
@@ -42,7 +62,7 @@ export const AgentsTableView: React.FC<AgentsTableViewProps> = ({
         </div>
 
         <div className="text-xs text-[#9c96c9]">
-          Showing <span className="text-white font-mono font-bold"><AnimatedNumber value={filteredAgents.length} /></span> active agents
+          Showing <span className="text-white font-mono font-bold"><AnimatedNumber value={filteredAgents.length} /></span> Active Agents
         </div>
       </div>
 
@@ -57,7 +77,7 @@ export const AgentsTableView: React.FC<AgentsTableViewProps> = ({
                 <th className="py-3 px-3">Status</th>
                 <th className="py-3 px-3">Runtime</th>
                 <th className="py-3 px-3">Allowed Tools</th>
-                <th className="py-3 px-3 text-right">Events (7d)</th>
+                <th className="py-3 px-3 text-right">{columnHeader}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#221e45] text-xs">
@@ -104,7 +124,7 @@ export const AgentsTableView: React.FC<AgentsTableViewProps> = ({
                   </td>
 
                   <td className="py-3 px-3 text-right font-mono font-bold text-white text-[12px]">
-                    <AnimatedNumber value={ag.eventsCount} />
+                    <AnimatedNumber value={getAgentEvents(ag.id, ag.eventsCount)} />
                   </td>
                 </tr>
               ))}

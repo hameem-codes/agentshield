@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, SlidersHorizontal, X, Check } from 'lucide-react';
 import type { EventsFilterState, EventDecision, ExecutionStatus } from './eventsTypes';
 
@@ -21,18 +21,37 @@ export const EventsFilterToolbar: React.FC<EventsFilterToolbarProps> = ({
     setOpenDropdown((prev) => (prev === name ? null : name));
   };
 
+  // Close toolbar dropdowns when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!openDropdown) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-events-filter-toolbar]')) return;
+      setOpenDropdown(null);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenDropdown(null);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openDropdown]);
+
   const decisions: (EventDecision | 'All')[] = ['All', 'Allowed', 'Review', 'Blocked'];
-  const agents = ['All', 'research-agent', 'email-agent', 'ops-agent', 'data-agent'];
+  const agents = ['All', 'Research-Agent', 'Email-Agent', 'Ops-Agent', 'Data-Agent'];
   const tools = [
     'All',
-    'read_web',
-    'send_email',
-    'list_files',
-    'query_db',
-    'download_file',
-    'read_mail',
-    'modify_record',
-    'delete_record',
+    'Read_Web',
+    'Send_Email',
+    'List_Files',
+    'Query_Db',
+    'Download_File',
+    'Read_Mail',
+    'Modify_Record',
+    'Delete_Record',
   ];
   const riskRanges: EventsFilterState['riskRange'][] = [
     'All',
@@ -51,7 +70,7 @@ export const EventsFilterToolbar: React.FC<EventsFilterToolbarProps> = ({
   ];
 
   return (
-    <div className="relative z-20 flex flex-wrap items-center justify-between gap-2.5 mb-3.5">
+    <div data-events-filter-toolbar="true" className="relative z-30 flex flex-wrap items-center justify-between gap-2.5 mb-3.5">
       {/* LEFT: SEARCH & FILTER BUTTONS */}
       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
         {/* 1. SEARCH INPUT */}
@@ -166,7 +185,7 @@ export const EventsFilterToolbar: React.FC<EventsFilterToolbarProps> = ({
           </button>
 
           {openDropdown === 'tool' && (
-            <div className="absolute left-0 mt-1.5 w-44 p-1 bg-[#181635] border border-[#3e3678] rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 max-h-56 overflow-y-auto">
+            <div className="absolute left-0 mt-1.5 w-48 p-1.5 bg-[#161333] border-2 border-[#4d408c] rounded-xl shadow-[0_16px_36px_rgba(0,0,0,0.85),0_0_16px_rgba(109,62,232,0.35)] z-50 animate-in fade-in zoom-in-95 duration-100 max-h-60 overflow-y-auto select-none">
               {tools.map((t) => (
                 <button
                   key={t}

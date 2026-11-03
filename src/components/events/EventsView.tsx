@@ -5,16 +5,21 @@ import { EventsFilterToolbar } from './EventsFilterToolbar';
 import { EventsTable } from './EventsTable';
 import { EventDrawer } from './EventDrawer';
 import { ALL_EVENTS, INITIAL_PRIMARY_EVENTS } from './eventsData';
+import { DASHBOARD_TIME_RANGES, type TimeRangeKey } from '../../data/dashboardTimeRanges';
 import type { SecurityEventRecord, EventsFilterState } from './eventsTypes';
 
 interface EventsViewProps {
   onRefreshGlobal?: () => void;
   isRefreshingGlobal?: boolean;
+  selectedTimeRange?: TimeRangeKey;
+  onSelectTimeRange?: (range: TimeRangeKey) => void;
 }
 
 export const EventsView: React.FC<EventsViewProps> = ({
   onRefreshGlobal,
   isRefreshingGlobal = false,
+  selectedTimeRange = 'Last 7 Days',
+  onSelectTimeRange,
 }) => {
   // Filter state
   const [filters, setFilters] = useState<EventsFilterState>({
@@ -31,8 +36,20 @@ export const EventsView: React.FC<EventsViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-  const [dateRange, setDateRange] = useState('Last 7 Days');
+  const [localDateRange, setLocalDateRange] = useState<TimeRangeKey>(selectedTimeRange);
   const [localRefreshing, setLocalRefreshing] = useState(false);
+
+  // Active time range dataset
+  const activeDateRange = selectedTimeRange || localDateRange;
+  const currentRangeData = DASHBOARD_TIME_RANGES[activeDateRange] || DASHBOARD_TIME_RANGES['Last 7 Days'];
+
+  const handleDateRangeChange = (r: string) => {
+    const key = r as TimeRangeKey;
+    setLocalDateRange(key);
+    if (onSelectTimeRange) {
+      onSelectTimeRange(key);
+    }
+  };
 
   // Selected event for detail drawer
   const [selectedEvent, setSelectedEvent] = useState<SecurityEventRecord | null>(null);
@@ -175,7 +192,6 @@ export const EventsView: React.FC<EventsViewProps> = ({
 
   // Paginated dataset
   const paginatedEvents = useMemo(() => {
-    // If on page 1 and no filters, ensure primary 8 match IMAGE 2 perfectly
     if (currentPage === 1 && activeFilterCount === 0 && sortOrder === 'desc') {
       return INITIAL_PRIMARY_EVENTS.slice(0, pageSize);
     }
@@ -183,13 +199,34 @@ export const EventsView: React.FC<EventsViewProps> = ({
     return sortedEvents.slice(startIndex, startIndex + pageSize);
   }, [sortedEvents, currentPage, pageSize, activeFilterCount, sortOrder]);
 
-  // Total count display (maintaining 3,842 total when unfiltered to match IMAGE 2)
+  // Dynamic formatted events with timestamps reflecting the chosen time range
+  const formattedPaginatedEvents = useMemo(() => {
+    return paginatedEvents.map((evt, idx) => {
+      let ts = evt.timestamp;
+      if (activeDateRange === 'Last 24 Hours') {
+        const hoursAgo = [12, 24, 55, 95, 140, 210, 290, 360][idx % 8] || (idx + 1) * 35;
+        const mins = hoursAgo % 60;
+        const hrs = Math.floor(hoursAgo / 60);
+        ts = hrs === 0 ? `${mins}m ago` : `Today, ${String(23 - hrs).padStart(2, '0')}:${String(59 - mins).padStart(2, '0')}`;
+      } else if (activeDateRange === 'Last 30 Days') {
+        const days = ['12 Jan', '08 Jan', '02 Jan', '27 Dec', '21 Dec', '14 Dec', '08 Dec', '02 Dec'];
+        ts = `${days[idx % days.length]} ${evt.timestamp.slice(-8)}`;
+      } else if (activeDateRange === 'This Month') {
+        const days = ['12 Jan', '10 Jan', '08 Jan', '06 Jan', '04 Jan', '03 Jan', '02 Jan', '01 Jan'];
+        ts = `${days[idx % days.length]} ${evt.timestamp.slice(-8)}`;
+      }
+      return { ...evt, timestamp: ts };
+    });
+  }, [paginatedEvents, activeDateRange]);
+
+  // Total count display dynamically adapted to the active date range
   const displayTotalCount = useMemo(() => {
     if (activeFilterCount === 0) {
-      return 3842;
+      return currentRangeData.totalEvents.value;
     }
-    return sortedEvents.length;
-  }, [activeFilterCount, sortedEvents.length]);
+    const ratio = sortedEvents.length / ALL_EVENTS.length;
+    return Math.max(sortedEvents.length, Math.round(ratio * currentRangeData.totalEvents.value));
+  }, [activeFilterCount, sortedEvents.length, currentRangeData.totalEvents.value]);
 
   // Export handling
   const handleExport = (format: 'csv' | 'json') => {
@@ -205,7 +242,16 @@ export const EventsView: React.FC<EventsViewProps> = ({
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      const headers = ['Timestamp', 'Event ID', 'Agent', 'Tool', 'Decision', 'Risk Score', 'Execution', 'Policy'];
+      const headers = [
+        'Timestamp',
+        'Event ID',
+        'Agent',
+        'Tool',
+        'Decision',
+        'Risk Score',
+        'Execution',
+        'Policy',
+      ];
       const rows = dataToExport.map((e) => [
         `"${e.timestamp}"`,
         `"${e.id}"`,
@@ -236,12 +282,12 @@ export const EventsView: React.FC<EventsViewProps> = ({
   };
 
   return (
-    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col justify-between">
+    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col gap-3.5">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
         {/* LEFT WORKSPACE — expands to full width when the event panel is closed */}
         <div
           className={`min-w-0 transition-all duration-300 ${
-            selectedEvent ? 'lg:col-span-8' : 'lg:col-span-12'
+            selectedEvent ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-12'
           }`}
         >
           {/* 1. EVENTS PAGE HEADER */}
@@ -249,12 +295,12 @@ export const EventsView: React.FC<EventsViewProps> = ({
             onRefresh={handleRefresh}
             isRefreshing={localRefreshing || isRefreshingGlobal}
             onExport={handleExport}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
+            dateRange={activeDateRange}
+            onDateRangeChange={handleDateRangeChange}
           />
 
           {/* 2. KPI CARDS SECTION */}
-          <EventsKpiSection />
+          <EventsKpiSection kpiData={currentRangeData} />
 
           {/* 3. FILTER AND SEARCH TOOLBAR */}
           <EventsFilterToolbar
@@ -266,49 +312,43 @@ export const EventsView: React.FC<EventsViewProps> = ({
 
           {/* 4. EVENTS TABLE & PAGINATION */}
           <EventsTable
-            events={paginatedEvents}
+            events={formattedPaginatedEvents}
             totalCount={displayTotalCount}
             currentPage={currentPage}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize);
+            onPageSizeChange={(sz) => {
+              setPageSize(sz);
               setCurrentPage(1);
             }}
             onSelectEvent={handleSelectEvent}
-            onFilterByAgent={(agent) => handleFilterChange('agent', agent)}
-            onFilterByTool={(tool) => handleFilterChange('tool', tool)}
+            onFilterByAgent={(ag) => handleFilterChange('agent', ag)}
+            onFilterByTool={(tl) => handleFilterChange('tool', tl)}
             sortOrder={sortOrder}
-            onToggleSort={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+            onToggleSort={() =>
+              setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+            }
           />
         </div>
 
-        {/* RIGHT WORKSPACE: ANIMATED EVENT DETAILS PANEL (4 OF 12 COLS) */}
+        {/* RIGHT WORKSPACE — slide-in detail panel */}
         {selectedEvent && (
           <div
-            key={selectedEvent.id}
-            className={`hidden lg:block lg:col-span-4 sticky top-[76px] pt-2 ${
-              isDrawerClosing ? 'portal-shell-exit' : 'portal-shell-enter'
+            className={`lg:col-span-5 xl:col-span-4 min-w-0 transition-all duration-200 ${
+
+              isDrawerClosing
+                ? 'opacity-0 translate-x-4 pointer-events-none'
+                : 'opacity-100 translate-x-0'
             }`}
           >
             <EventDrawer
-              variant="panel"
               event={selectedEvent}
               onClose={handleCloseDrawer}
+              variant="panel"
             />
           </div>
         )}
       </div>
-
-      {/* MOBILE / TABLET ANIMATED EVENT DRAWER */}
-      <EventDrawer
-        key={selectedEvent?.id ?? 'event-drawer'}
-        variant="drawer"
-        event={selectedEvent}
-        onClose={handleCloseDrawer}
-        isClosing={isDrawerClosing}
-      />
     </main>
   );
 };
-

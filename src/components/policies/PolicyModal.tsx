@@ -33,11 +33,11 @@ const PolicyModalForm: React.FC<Omit<PolicyModalProps, 'isOpen'>> = ({
   onSavePolicy,
 }) => {
   const [name, setName] = useState(policyToEdit?.name || '');
-  const [version, setVersion] = useState(policyToEdit?.version || 'v1.0.0');
+  const [version, setVersion] = useState(policyToEdit?.version || 'V1.0.0');
   const [status, setStatus] = useState<PolicyStatus>(policyToEdit?.status || 'Active');
   const [description, setDescription] = useState(policyToEdit?.description || '');
   const [allowedToolsStr, setAllowedToolsStr] = useState(
-    policyToEdit?.rules.allowedTools.join(', ') || 'read_web, search_web'
+    policyToEdit?.rules.allowedTools.join(', ') || 'Read_Web, Search_Web'
   );
   const [hostnamesStr, setHostnamesStr] = useState(
     policyToEdit?.rules.allowedHostnames.join(', ') || '*.wikipedia.org, docs.internal.com'
@@ -109,7 +109,7 @@ const PolicyModalForm: React.FC<Omit<PolicyModalProps, 'isOpen'>> = ({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Research v3"
+              placeholder="E.g. Research v3"
               className="w-full h-9 px-3 bg-[#191738] border border-[#3b3472] rounded-xl text-xs text-white focus:outline-none focus:border-[#6d3ee8]"
             />
           </div>
@@ -123,7 +123,7 @@ const PolicyModalForm: React.FC<Omit<PolicyModalProps, 'isOpen'>> = ({
                 type="text"
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
-                placeholder="v1.0.0"
+                placeholder="V1.0.0"
                 className="w-full h-9 px-3 bg-[#191738] border border-[#3b3472] rounded-xl text-xs text-white focus:outline-none focus:border-[#6d3ee8] font-mono"
               />
             </div>
@@ -165,7 +165,7 @@ const PolicyModalForm: React.FC<Omit<PolicyModalProps, 'isOpen'>> = ({
               type="text"
               value={allowedToolsStr}
               onChange={(e) => setAllowedToolsStr(e.target.value)}
-              placeholder="read_web, search_web, download_file"
+              placeholder="Read_Web, Search_Web, Download_File"
               className="w-full h-9 px-3 bg-[#191738] border border-[#3b3472] rounded-xl text-xs text-white focus:outline-none focus:border-[#6d3ee8] font-mono"
             />
           </div>

@@ -9,74 +9,48 @@ import { PixelCard } from './pixel/PixelCard';
 import { AnimatedNumber } from './pixel/AnimatedNumber';
 import { ArrowRight } from 'lucide-react';
 import type { SecurityEvent } from '../types';
+import { DASHBOARD_TIME_RANGES, type RecentEventData } from '../data/dashboardTimeRanges';
 
 interface RecentEventsListProps {
   onSelectEvent: (event: SecurityEvent) => void;
   onViewAll: () => void;
+  eventsData?: RecentEventData[];
 }
 
 export const RecentEventsList: React.FC<RecentEventsListProps> = ({
   onSelectEvent,
   onViewAll,
+  eventsData = DASHBOARD_TIME_RANGES['Last 7 Days'].recentEvents,
 }) => {
-  const events: SecurityEvent[] = [
-    {
-      id: 'evt-1',
-      agent: 'research-agent',
-      action: 'read_web',
-      decision: 'Allowed',
-      riskScore: 12,
-      timestamp: '2 min ago',
-      payloadSummary: 'GET https://arxiv.org/html/2401.001 - Status 200 OK',
-      reason: 'Standard read-only query matching approved research pattern.',
-    },
-    {
-      id: 'evt-2',
-      agent: 'email-agent',
-      action: 'send_email',
-      decision: 'Blocked',
-      riskScore: 87,
-      timestamp: '7 min ago',
-      payloadSummary: 'POST smtp://relay.corp.internal - Target: external_dump@unknown.net',
-      reason: 'Unauthorized external data exfiltration attempt blocked by egress firewall.',
-    },
-    {
-      id: 'evt-3',
-      agent: 'ops-agent',
-      action: 'list_files',
-      decision: 'Review',
-      riskScore: 68,
-      timestamp: '12 min ago',
-      payloadSummary: 'LS -la /var/run/secrets/kubernetes.io/serviceaccount',
-      reason: 'Sensitive token directory inspection requested; flagged for supervisor review.',
-    },
-    {
-      id: 'evt-4',
-      agent: 'data-agent',
-      action: 'query_db',
-      decision: 'Allowed',
-      riskScore: 24,
-      timestamp: '18 min ago',
-      payloadSummary: 'SELECT COUNT(*) FROM telemetry_logs WHERE created_at > NOW() - 1h',
-      reason: 'Authorized read telemetry aggregate query executed within memory quota.',
-    },
-  ];
-
-  const getStatusIcon = (decision: SecurityEvent['decision']) => {
+  const getStatusIcon = (decision: string) => {
     switch (decision) {
       case 'Allowed':
-        return <PixelCheckCircleIcon size={16} />;
+        return (
+          <div className="text-[#4ade80]">
+            <PixelCheckCircleIcon size={16} />
+          </div>
+        );
       case 'Blocked':
-        return <PixelCrossShieldIcon size={16} />;
+        return (
+          <div className="text-[#f87171]">
+            <PixelCrossShieldIcon size={16} />
+          </div>
+        );
       case 'Review':
-        return <PixelClockCircleIcon size={16} />;
+        return (
+          <div className="text-[#facc15]">
+            <PixelClockCircleIcon size={16} />
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
   return (
-    <PixelCard className="h-full flex-1" innerClassName="p-3.5 justify-between h-full">
+    <PixelCard innerClassName="p-3.5 justify-between h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-[#25204c]">
+      <div className="flex items-center justify-between pb-2 border-b border-[#231e47]">
         <div className="flex items-center gap-1.5">
           <div className="flex items-center justify-center text-[#c084fc]">
             <PixelLayersIcon size={16} />
@@ -88,7 +62,7 @@ export const RecentEventsList: React.FC<RecentEventsListProps> = ({
 
         <button
           onClick={onViewAll}
-          className="flex items-center gap-1 text-[11.5px] font-semibold text-[#8b84bd] hover:text-[#c4bbf0] transition-colors group"
+          className="flex items-center gap-1 text-[11.5px] font-semibold text-[#8b84bd] hover:text-[#c4bbf0] transition-colors group cursor-pointer"
         >
           <span>View All</span>
           <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
@@ -97,11 +71,22 @@ export const RecentEventsList: React.FC<RecentEventsListProps> = ({
 
       {/* Event Items */}
       <div className="flex flex-col justify-between gap-1.5 my-auto py-1">
-        {events.map((evt) => (
+        {eventsData.map((evt) => (
           <button
             key={evt.id}
-            onClick={() => onSelectEvent(evt)}
-            className="flex items-center justify-between w-full py-1.5 px-2 rounded-lg text-left hover:bg-[#201d44] transition-colors group"
+            onClick={() =>
+              onSelectEvent({
+                id: evt.id,
+                agent: evt.agent,
+                action: evt.action,
+                decision: evt.decision,
+                riskScore: evt.riskScore,
+                timestamp: evt.timeAgo,
+                payloadSummary: `${evt.agent} executing ${evt.action}`,
+                reason: `${evt.decision} decision under active runtime policy.`,
+              })
+            }
+            className="flex items-center justify-between w-full py-1.5 px-2 rounded-lg text-left hover:bg-[#201d44] transition-colors group cursor-pointer"
           >
             {/* Left: Status Icon + Event Name & Subtitle */}
             <div className="flex items-center gap-2.5">
@@ -109,7 +94,7 @@ export const RecentEventsList: React.FC<RecentEventsListProps> = ({
                 {getStatusIcon(evt.decision)}
               </div>
               <div className="flex flex-col">
-                <span className="text-[12px] font-semibold text-white group-hover:text-[#c4bbf0] transition-colors">
+                <span className="text-[12px] font-semibold text-white group-hover:text-[#c4bbf0] transition-colors font-mono">
                   {evt.agent} · {evt.action}
                 </span>
                 <span className="text-[11px] text-[#8680b5] font-medium">
@@ -120,7 +105,7 @@ export const RecentEventsList: React.FC<RecentEventsListProps> = ({
 
             {/* Right: Timestamp */}
             <span className="text-[11px] text-[#7d77a8] font-medium whitespace-nowrap pl-2">
-              {evt.timestamp}
+              {evt.timeAgo}
             </span>
           </button>
         ))}

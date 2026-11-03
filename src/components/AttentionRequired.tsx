@@ -10,46 +10,18 @@ import { PixelCard } from './pixel/PixelCard';
 import { AnimatedNumber } from './pixel/AnimatedNumber';
 import { ChevronRight } from 'lucide-react';
 import type { AttentionItem } from '../types';
+import { DASHBOARD_TIME_RANGES, type TimeRangeDataset } from '../data/dashboardTimeRanges';
 
 interface AttentionRequiredProps {
   onSelectItem: (item: AttentionItem) => void;
+  attentionData?: TimeRangeDataset['attention'];
 }
 
-export const AttentionRequired: React.FC<AttentionRequiredProps> = ({ onSelectItem }) => {
-  const items: AttentionItem[] = [
-    {
-      id: 'review-actions',
-      iconType: 'review',
-      text: '6 actions awaiting review',
-      count: 6,
-      severity: 'yellow',
-      details: 'Supervisory sign-off required for file system write permissions across ops-agent.',
-    },
-    {
-      id: 'paused-agent',
-      iconType: 'paused',
-      text: '1 agent is paused',
-      count: 1,
-      severity: 'orange',
-      details: 'email-agent auto-paused following anomalous credential spray detection.',
-    },
-    {
-      id: 'high-risk',
-      iconType: 'risk',
-      text: '17 high-risk events (≥ 61)',
-      count: 17,
-      severity: 'red',
-      details: '17 events flagged with elevated heuristic risk in the last evaluation cycle.',
-    },
-    {
-      id: 'policy-changes',
-      iconType: 'policy',
-      text: '2 policy changes in last 24h',
-      count: 2,
-      severity: 'purple',
-      details: 'Updated Research v2 sandbox definitions and restricted outbound ports.',
-    },
-  ];
+export const AttentionRequired: React.FC<AttentionRequiredProps> = ({
+  onSelectItem,
+  attentionData = DASHBOARD_TIME_RANGES['Last 7 Days'].attention,
+}) => {
+  const items = attentionData.items;
 
   const getIcon = (type: AttentionItem['iconType']) => {
     switch (type) {
@@ -94,9 +66,9 @@ export const AttentionRequired: React.FC<AttentionRequiredProps> = ({ onSelectIt
           </h3>
         </div>
 
-        {/* Purple Badge 6 */}
+        {/* Purple Badge */}
         <span className="px-1.5 py-0.5 text-[10.5px] font-bold rounded-md bg-[#6d3ee8] text-white shadow-[0_1px_4px_rgba(109,62,232,0.4)]">
-          <AnimatedNumber value={6} />
+          <AnimatedNumber value={attentionData.badgeCount} />
         </span>
       </div>
 

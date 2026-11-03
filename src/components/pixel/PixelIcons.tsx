@@ -185,9 +185,9 @@ export const PixelPauseBarsIcon: React.FC<{ size?: number; className?: string }>
 
 export const PixelInfoIcon: React.FC<{ size?: number; className?: string }> = ({ size = 15, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={`pixelated ${className}`}>
-    <circle cx="8" cy="8" r="7" stroke="#716b9e" strokeWidth="1.5" />
-    <rect x="7" y="4" width="2" height="2" fill="#716b9e" />
-    <rect x="7" y="7" width="2" height="5" fill="#716b9e" />
+    <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+    <rect x="7" y="4" width="2" height="2" fill="currentColor" />
+    <rect x="7" y="7" width="2" height="5" fill="currentColor" />
   </svg>
 );
 

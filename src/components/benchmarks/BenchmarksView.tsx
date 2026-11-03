@@ -33,7 +33,7 @@ export const BenchmarksView: React.FC = () => {
   };
 
   return (
-    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col justify-between">
+    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col gap-3.5">
       <div className="flex flex-col gap-3.5">
         {/* 1. BENCHMARKS PAGE HEADER */}
         <BenchmarkPageHeader

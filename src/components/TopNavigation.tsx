@@ -111,16 +111,16 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
                     <span className="flex items-center gap-1.5">
                       <AlertTriangle size={13} /> High-Risk Detected
                     </span>
-                    <span className="text-[10px] text-[#8680b5]">2m ago</span>
+                    <span className="text-[10px] text-[#8680b5]">2m Ago</span>
                   </div>
                   <p className="text-[#c6c2e8] text-[11px] leading-relaxed">
-                    email-agent triggered policy rule violation (Risk <AnimatedNumber value={87} />).
+                    Email-Agent triggered policy rule violation (Risk <AnimatedNumber value={87} />).
                   </p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#1d1a3b] border border-[#312a5e] text-xs">
                   <div className="flex items-center justify-between text-[#eab308] font-semibold mb-1">
                     <span>Awaiting Review</span>
-                    <span className="text-[10px] text-[#8680b5]">12m ago</span>
+                    <span className="text-[10px] text-[#8680b5]">12m Ago</span>
                   </div>
                   <p className="text-[#c6c2e8] text-[11px] leading-relaxed">
                     <AnimatedNumber value={6} /> file access requests currently queued for supervisor sign-off.
@@ -155,7 +155,7 @@ export const TopNavigation: React.FC<TopNavigationProps> = ({
             <div className="absolute right-0 mt-2 w-52 p-1.5 bg-[#181634] border border-[#3e3678] rounded-2xl shadow-2xl z-50">
               <div className="px-3 py-2 border-b border-[#282352]">
                 <p className="text-xs font-semibold text-white">Administrator</p>
-                <p className="text-[11px] text-[#8d87bc] truncate">admin@agentshield.sec</p>
+                <p className="text-[11px] text-[#8d87bc] truncate">Admin@agentshield.sec</p>
               </div>
               <div className="py-1">
                 <button

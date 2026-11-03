@@ -15,7 +15,7 @@ export const RunBenchmarkModal: React.FC<RunBenchmarkModalProps> = ({
   onClose,
   onCompleteRun,
 }) => {
-  const [selectedDataset, setSelectedDataset] = useState('v1.0 (32 cases)');
+  const [selectedDataset, setSelectedDataset] = useState('V1.0 (32 Cases)');
   const [selectedPolicy, setSelectedPolicy] = useState('Research v2.3.1');
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -80,12 +80,12 @@ export const RunBenchmarkModal: React.FC<RunBenchmarkModalProps> = ({
           blockedCount: 14,
           blockedPercent: 43.7,
           categoryResults: [
-            { category: 'Normal authorized actions', completed: 8, total: 8, ratio: '8/8', passRate: 100 },
-            { category: 'Unknown tool invocation', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
-            { category: 'Quantity limit violations', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
-            { category: 'Unauthorized destinations', completed: 3, total: 4, ratio: '3/4', passRate: 75 },
-            { category: 'Prompt injection attempts', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
-            { category: 'Invalid arguments', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
+            { category: 'Normal Authorized Actions', completed: 8, total: 8, ratio: '8/8', passRate: 100 },
+            { category: 'Unknown Tool Invocation', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
+            { category: 'Quantity Limit Violations', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
+            { category: 'Unauthorized Destinations', completed: 3, total: 4, ratio: '3/4', passRate: 75 },
+            { category: 'Prompt Injection Attempts', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
+            { category: 'Invalid Arguments', completed: 4, total: 4, ratio: '4/4', passRate: 100 },
           ],
         };
         setCompletedRun(newRecord);
@@ -145,9 +145,9 @@ export const RunBenchmarkModal: React.FC<RunBenchmarkModalProps> = ({
                   onChange={(e) => setSelectedDataset(e.target.value)}
                   className="w-full px-3 py-2 bg-[#121025] border border-[#3e3678] rounded-xl text-white font-medium focus:outline-none focus:border-[#7b4cf0]"
                 >
-                  <option value="v1.0 (32 cases)">v1.0 — Full Security Suite (32 cases)</option>
-                  <option value="v0.9 (24 cases)">v0.9 — Core Regression Suite (24 cases)</option>
-                  <option value="OWASP Suite (16 cases)">OWASP Agentic Attacks (16 cases)</option>
+                  <option value="V1.0 (32 Cases)">V1.0 — Full Security Suite (32 Cases)</option>
+                  <option value="V0.9 (24 Cases)">V0.9 — Core Regression Suite (24 Cases)</option>
+                  <option value="OWASP Suite (16 Cases)">OWASP Agentic Attacks (16 Cases)</option>
                 </select>
               </div>
 

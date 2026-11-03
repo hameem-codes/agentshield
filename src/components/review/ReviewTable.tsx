@@ -52,16 +52,22 @@ export const ReviewTable: React.FC<ReviewTableProps> = ({
   const renderToolIcon = (tool: string) => {
     switch (tool) {
       case 'read_web':
+      case 'Read_Web':
         return <PixelGlobeIcon size={14} className="text-[#60a5fa]" />;
       case 'export_db':
+      case 'Export_Db':
         return <PixelDatabaseIcon size={14} className="text-[#a78bfa]" />;
       case 'send_email':
+      case 'Send_Email':
         return <PixelMailIcon size={14} className="text-[#38bdf8]" />;
       case 'api_call':
+      case 'Api_Call':
         return <PixelCodeIcon size={14} className="text-[#34d399]" />;
       case 'update_record':
+      case 'Update_Record':
         return <PixelPencilIcon size={14} className="text-[#fbbf24]" />;
       case 'download_file':
+      case 'Download_File':
         return <PixelDownloadIcon size={14} className="text-[#c084fc]" />;
       default:
         return <PixelGlobeIcon size={14} className="text-[#938ebf]" />;
@@ -236,7 +242,7 @@ export const ReviewTable: React.FC<ReviewTableProps> = ({
         <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#292352] bg-[#16142e] text-xs text-[#9c96c9] select-none font-medium">
           <div>
             Showing <span className="text-white font-mono">1–<AnimatedNumber value={requests.length} /></span> of{' '}
-            <span className="text-white font-mono"><AnimatedNumber value={requests.length} /></span> requests
+            <span className="text-white font-mono"><AnimatedNumber value={requests.length} /></span> Requests
           </div>
         </div>
       </div>

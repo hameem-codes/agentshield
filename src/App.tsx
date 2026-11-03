@@ -16,6 +16,7 @@ import { EventsView } from './components/events/EventsView';
 import { ReviewView } from './components/review/ReviewView';
 import { PoliciesView } from './components/policies/PoliciesView';
 import { BenchmarksView } from './components/benchmarks/BenchmarksView';
+import { DASHBOARD_TIME_RANGES, type TimeRangeKey } from './data/dashboardTimeRanges';
 import type { Agent, SecurityEvent, AttentionItem, AlertNotification } from './types';
 
 export function App() {
@@ -37,14 +38,18 @@ export function App() {
       if (hash === 'policies') return 'Policies';
       if (hash === 'benchmarks') return 'Benchmarks';
     }
-    return 'Benchmarks'; // Default to Benchmarks tab for the Benchmarks screen build
+    return 'Overview'; // Default to Overview tab when opening the website
   };
 
   const [currentTab, setCurrentTab] = useState(getInitialTab);
+  const [policiesSubTab, setPoliciesSubTab] = useState<'Policies' | 'Agents'>('Policies');
+  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRangeKey>('Last 7 Days');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const currentRangeData = DASHBOARD_TIME_RANGES[selectedTimeRange] || DASHBOARD_TIME_RANGES['Last 7 Days'];
 
   const handleSelectTab = (tab: string) => {
     setCurrentTab(tab);
@@ -80,7 +85,7 @@ export function App() {
       setIsRefreshing(false);
       setActiveAlert({
         id: `alert-${Date.now()}`,
-        agent: 'email-agent',
+        agent: 'Email-Agent',
         reason: 'Outbound volume threshold exceeded under Restricted v1 policy.',
         riskScore: 68,
         severity: 'warning',
@@ -92,21 +97,26 @@ export function App() {
   const handleAttentionSelect = (item: AttentionItem) => {
     if (item.id === 'paused-agent') {
       setSelectedAgent({
-        id: 'email-agent',
-        name: 'email-agent',
+        id: 'Email-Agent',
+        name: 'Email-Agent',
         status: 'Paused',
         policy: 'Restricted v1',
         events7d: 421,
         blockedCount: 53,
         blockedRate: '12.6%',
         runtime: 'Python Autogen v0.4',
-        lastActive: '34m ago',
+        lastActive: '34m Ago',
         description: 'Outbound dispatch agent paused due to high risk score anomaly.',
       });
+    } else if (item.id === 'review-actions') {
+      handleSelectTab('Review');
+    } else if (item.id === 'policy-changes') {
+      setPoliciesSubTab('Policies');
+      handleSelectTab('Policies');
     } else {
       setSelectedEvent({
         id: `attn-${item.id}`,
-        agent: 'ops-agent',
+        agent: 'Ops-Agent',
         action: item.text,
         decision: item.severity === 'red' ? 'Blocked' : 'Review',
         riskScore: item.severity === 'red' ? 87 : 68,
@@ -147,16 +157,24 @@ export function App() {
         {currentTab === 'Benchmarks' ? (
           <BenchmarksView />
         ) : currentTab === 'Policies' ? (
-          <PoliciesView />
+          <PoliciesView
+            initialSubTab={policiesSubTab}
+            onSelectSubTab={setPoliciesSubTab}
+            selectedTimeRange={selectedTimeRange}
+          />
         ) : currentTab === 'Review' ? (
           <ReviewView
             onRefreshGlobal={handleRefresh}
             isRefreshingGlobal={isRefreshing}
+            selectedTimeRange={selectedTimeRange}
+            onSelectTimeRange={setSelectedTimeRange}
           />
         ) : currentTab === 'Events' ? (
           <EventsView
             onRefreshGlobal={handleRefresh}
             isRefreshingGlobal={isRefreshing}
+            selectedTimeRange={selectedTimeRange}
+            onSelectTimeRange={setSelectedTimeRange}
           />
         ) : (
           <main className="flex-1 px-5 py-2.5 md:px-6 md:py-3 max-w-[1536px] w-full mx-auto flex flex-col gap-3">
@@ -164,22 +182,24 @@ export function App() {
             <DashboardHeader
               onRefresh={handleRefresh}
               isRefreshing={isRefreshing}
+              selectedRange={selectedTimeRange}
+              onSelectRange={setSelectedTimeRange}
             />
 
             {/* KPI Section: 4 Metric Cards with Sparklines */}
-            <KpiSection />
+            <KpiSection data={currentRangeData} />
 
             {/* Middle Analytics Grid: 3 Panels */}
             {/* Security Activity (approx 48%), Decision Distribution (26%), Risk Overview (26%) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
               <div className="lg:col-span-6 xl:col-span-6 flex flex-col">
-                <SecurityActivityChart />
+                <SecurityActivityChart chartData={currentRangeData.chart} />
               </div>
               <div className="lg:col-span-3 xl:col-span-3 flex flex-col">
-                <DecisionDistribution />
+                <DecisionDistribution distributionData={currentRangeData.distribution} />
               </div>
               <div className="lg:col-span-3 xl:col-span-3 flex flex-col">
-                <RiskOverview />
+                <RiskOverview riskData={currentRangeData.risk} />
               </div>
             </div>
 
@@ -189,16 +209,26 @@ export function App() {
               <div className="lg:col-span-6 xl:col-span-6 flex flex-col">
                 <ActiveAgentsTable
                   onSelectAgent={setSelectedAgent}
-                  onViewAll={() => setIsSearchOpen(true)}
+                  onViewAll={() => {
+                    setPoliciesSubTab('Agents');
+                    handleSelectTab('Policies');
+                  }}
+                  agentsData={currentRangeData.agents}
                 />
               </div>
               <div className="lg:col-span-3 xl:col-span-3 flex flex-col">
-                <AttentionRequired onSelectItem={handleAttentionSelect} />
+                <AttentionRequired
+                  onSelectItem={handleAttentionSelect}
+                  attentionData={currentRangeData.attention}
+                />
               </div>
               <div className="lg:col-span-3 xl:col-span-3 flex flex-col">
                 <RecentEventsList
                   onSelectEvent={setSelectedEvent}
-                  onViewAll={() => setIsSearchOpen(true)}
+                  onViewAll={() => {
+                    handleSelectTab('Events');
+                  }}
+                  eventsData={currentRangeData.recentEvents}
                 />
               </div>
             </div>
@@ -214,7 +244,7 @@ export function App() {
           setSelectedEvent({
             id: alert.id,
             agent: alert.agent,
-            action: 'anomaly_investigation',
+            action: 'Anomaly_Investigation',
             decision: alert.severity === 'critical' ? 'Blocked' : 'Review',
             riskScore: alert.riskScore,
             timestamp: alert.timestamp,

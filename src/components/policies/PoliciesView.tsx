@@ -8,15 +8,42 @@ import { PolicyModal } from './PolicyModal';
 import { AgentsTableView } from './AgentsTableView';
 import { INITIAL_POLICIES } from './policyData';
 import type { SecurityPolicy, PolicyFilterState } from './policyTypes';
+import { type TimeRangeKey } from '../../data/dashboardTimeRanges';
 
-export const PoliciesView: React.FC = () => {
+interface PoliciesViewProps {
+  initialSubTab?: 'Policies' | 'Agents';
+  onSelectSubTab?: (tab: 'Policies' | 'Agents') => void;
+  selectedTimeRange?: TimeRangeKey;
+}
+
+export const PoliciesView: React.FC<PoliciesViewProps> = ({
+  initialSubTab = 'Policies',
+  onSelectSubTab,
+  selectedTimeRange = 'Last 7 Days',
+}) => {
   const [policies, setPolicies] = useState<SecurityPolicy[]>(INITIAL_POLICIES);
   // Starts closed so the policy portal only appears on demand
   const [selectedPolicy, setSelectedPolicy] = useState<SecurityPolicy | null>(null);
   const [isDetailClosing, setIsDetailClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
 
-  const [activeMainTab, setActiveMainTab] = useState<'Policies' | 'Agents'>('Policies');
+  const [activeMainTab, setActiveMainTab] = useState<'Policies' | 'Agents'>(initialSubTab);
+
+  useEffect(() => {
+    setActiveMainTab(initialSubTab);
+  }, [initialSubTab]);
+
+  const handleTabChange = (tab: 'Policies' | 'Agents') => {
+    setActiveMainTab(tab);
+    if (onSelectSubTab) onSelectSubTab(tab);
+    // Leaving the Policies tab closes any open policy portal
+    if (tab === 'Agents') {
+      cancelCloseTimer();
+      setSelectedPolicy(null);
+      setIsDetailClosing(false);
+      setIsMobileDetailOpen(false);
+    }
+  };
 
   // Filters
   const [filters, setFilters] = useState<PolicyFilterState>({
@@ -171,14 +198,14 @@ export const PoliciesView: React.FC = () => {
       const newPolicy: SecurityPolicy = {
         id: data.id || `pol-${Date.now()}`,
         name: data.name || 'New Policy',
-        version: data.version || 'v1.0.0',
+        version: data.version || 'V1.0.0',
         status: data.status || 'Active',
         description: data.description || 'Custom security policy ruleset',
         assignedAgentNames: [],
         lastUpdated: 'Just now',
         lastUpdatedTimestamp: Date.now(),
         rules: data.rules || {
-          allowedTools: ['read_web'],
+          allowedTools: ['Read_Web'],
           argumentLimits: { maxItemsPerRequest: 10, maxFileSize: '25 MB' },
           allowedHostnames: ['*.internal.com'],
           defaultDeny: true,
@@ -187,7 +214,7 @@ export const PoliciesView: React.FC = () => {
         },
         versions: [
           {
-            version: data.version || 'v1.0.0',
+            version: data.version || 'V1.0.0',
             date: 'Today',
             author: 'Admin',
             description: 'Initial policy creation',
@@ -203,7 +230,7 @@ export const PoliciesView: React.FC = () => {
   };
 
   return (
-    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col justify-between">
+    <main className="flex-1 px-5 py-3 md:px-6 md:py-3.5 max-w-[1536px] w-full mx-auto flex flex-col gap-3.5">
       {/* TOAST FEEDBACK */}
       {toastMessage && (
         <div className="fixed top-20 right-8 z-50 px-4 py-2.5 rounded-xl bg-[#221c45] border border-[#6d3ee8] text-white text-xs font-semibold shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -215,21 +242,12 @@ export const PoliciesView: React.FC = () => {
       {/* 1. PAGE HEADER */}
       <PolicyPageHeader
         activeMainTab={activeMainTab}
-        onSelectMainTab={(tab) => {
-          setActiveMainTab(tab);
-          // Leaving the Policies tab closes any open policy portal
-          if (tab === 'Agents') {
-            cancelCloseTimer();
-            setSelectedPolicy(null);
-            setIsDetailClosing(false);
-            setIsMobileDetailOpen(false);
-          }
-        }}
+        onSelectMainTab={handleTabChange}
       />
 
       {/* 2. BODY CONTENT */}
       {activeMainTab === 'Policies' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start mt-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
           {/* LEFT COLUMN: KPIS + TOOLBAR + TABLE — expands when the portal is closed */}
           <div
             className={`min-w-0 flex flex-col transition-all duration-300 ${
@@ -288,15 +306,16 @@ export const PoliciesView: React.FC = () => {
         </div>
       ) : (
         /* AGENTS TAB VIEW */
-        <div className="mt-2">
+        <div className="w-full">
           <AgentsTableView
             onSelectPolicyByName={(pName) => {
               const matched = policies.find((p) => p.name === pName);
               if (matched) {
                 handleSelectPolicy(matched);
-                setActiveMainTab('Policies');
+                handleTabChange('Policies');
               }
             }}
+            selectedTimeRange={selectedTimeRange}
           />
         </div>
       )}

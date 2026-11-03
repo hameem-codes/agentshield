@@ -22,7 +22,7 @@ export const PolicyToolbar: React.FC<PolicyToolbarProps> = ({
   };
 
   const statuses: (PolicyStatus | 'All')[] = ['All', 'Active', 'Draft', 'Archived'];
-  const agents = ['All', 'research-agent', 'ops-agent', 'data-agent', 'email-agent'];
+  const agents = ['All', 'Research-Agent', 'Ops-Agent', 'Data-Agent', 'Email-Agent'];
 
   const hasActiveFilters =
     filters.searchQuery.trim() !== '' ||

@@ -16,7 +16,7 @@ export const ReviewPageHeader: React.FC<ReviewPageHeaderProps> = ({
   onDateRangeChange,
 }) => {
   const [dateRangeOpen, setDateRangeOpen] = useState(false);
-  const ranges = ['Last 24 Hours', 'Last 7 Days', 'Last 30 Days', 'All Time'];
+  const ranges = ['Last 24 Hours', 'Last 7 Days', 'Last 30 Days', 'This Month'];
 
   return (
     <div className="relative pt-1 pb-3">

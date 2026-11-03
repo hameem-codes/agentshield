@@ -59,7 +59,7 @@ export const PixelAlertToast: React.FC<PixelAlertToastProps> = ({
             <span className="text-xs font-bold text-white font-mono">
               {alert.agent}
             </span>
-            <span className="text-xs text-[#a59fcf] font-medium">needs attention</span>
+            <span className="text-xs text-[#a59fcf] font-medium">Needs Attention</span>
           </div>
 
           <div className="flex items-center gap-2">

@@ -1,44 +1,43 @@
-import React, { useState } from 'react';
-import { PixelLightningIcon, PixelInfoIcon } from './pixel/PixelIcons';
+import React, { useState, useRef, useEffect } from 'react';
+import { PixelLightningIcon } from './pixel/PixelIcons';
+import { PixelInfoTooltip } from './pixel/PixelInfoTooltip';
 import { PixelCard } from './pixel/PixelCard';
 import { ChevronDown, Check } from 'lucide-react';
+import { DASHBOARD_TIME_RANGES, type TimeRangeDataset } from '../data/dashboardTimeRanges';
 
-interface DayData {
-  day: string;
-  allowed: number;
-  review: number;
-  blocked: number;
+interface SecurityActivityChartProps {
+  chartData?: TimeRangeDataset['chart'];
 }
 
-export const SecurityActivityChart: React.FC = () => {
-  const [granularity, setGranularity] = useState('Events (Daily)');
+export const SecurityActivityChart: React.FC<SecurityActivityChartProps> = ({
+  chartData = DASHBOARD_TIME_RANGES['Last 7 Days'].chart,
+}) => {
+  const getGranularityForUnit = (unit?: string) => {
+    if (unit === 'h') return 'Events (Hourly)';
+    if (unit === 'w') return 'Events (Weekly)';
+    return 'Events (Daily)';
+  };
+
+  const [granularity, setGranularity] = useState(() => getGranularityForUnit(chartData?.unit));
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [hoveredPoint, setHoveredPoint] = useState<DayData | null>(null);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  // Exact dataset corresponding to the screenshot curve:
-  // Allowed climbs from ~380 to ~720 (Tue to Mon)
-  // Review stays steady around 80-120
-  // Blocked stays low around 35-60
-  const data: DayData[] = [
-    { day: 'Tue', allowed: 380, review: 85, blocked: 42 },
-    { day: 'Wed', allowed: 460, review: 95, blocked: 48 },
-    { day: 'Thu', allowed: 390, review: 88, blocked: 40 },
-    { day: 'Fri', allowed: 480, review: 105, blocked: 52 },
-    { day: 'Sat', allowed: 540, review: 95, blocked: 45 },
-    { day: 'Sun', allowed: 570, review: 88, blocked: 40 },
-    { day: 'Mon', allowed: 720, review: 125, blocked: 62 },
-  ];
+  useEffect(() => {
+    setGranularity(getGranularityForUnit(chartData?.unit));
+  }, [chartData?.unit]);
 
-  const chartHeight = 135;
-  const chartWidth = 460;
-  const paddingLeft = 34;
+  const data = chartData.data;
+  const chartHeight = 165;
+  const chartWidth = 470;
+  const paddingLeft = 46;
   const paddingRight = 14;
-  const paddingTop = 12;
-  const paddingBottom = 20;
+  const paddingTop = 16;
+  const paddingBottom = 26;
 
   const innerWidth = chartWidth - paddingLeft - paddingRight;
   const innerHeight = chartHeight - paddingTop - paddingBottom;
-  const maxY = 800;
+  const maxY = chartData.maxY;
 
   const getY = (val: number) => paddingTop + innerHeight - (val / maxY) * innerHeight;
   const getX = (index: number) => paddingLeft + (index / (data.length - 1)) * innerWidth;
@@ -52,78 +51,135 @@ export const SecurityActivityChart: React.FC = () => {
   const blockedPath = buildPath('blocked');
   const allowedArea = `${allowedPath} L ${getX(data.length - 1)} ${getY(0)} L ${getX(0)} ${getY(0)} Z`;
 
+  // Continuous mouse tracking across the entire chart area (zero dead zones)
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    // Map mouseX from screen pixels to SVG viewBox space (0 to chartWidth)
+    const svgX = (mouseX / rect.width) * chartWidth;
+
+    // Check if within bounds
+    if (svgX < paddingLeft - 25 || svgX > chartWidth - paddingRight + 25) {
+      setHoveredIdx(null);
+      return;
+    }
+
+    const norm = (svgX - paddingLeft) / innerWidth;
+    const clampedIdx = Math.max(0, Math.min(data.length - 1, Math.round(norm * (data.length - 1))));
+    setHoveredIdx(clampedIdx);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredIdx(null);
+  };
+
+  const activePoint = hoveredIdx !== null && hoveredIdx < data.length ? data[hoveredIdx] : null;
+  const activeX = hoveredIdx !== null && hoveredIdx < data.length ? getX(hoveredIdx) : 0;
+  const activePercent = (activeX / chartWidth) * 100;
+
   return (
-    <PixelCard innerClassName="p-3.5 justify-between h-full">
+    <PixelCard innerClassName="p-4 justify-between h-full">
       {/* Top Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-[#25204c]">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between pb-2.5 border-b border-[#25204c]">
+        <div className="flex items-center gap-2">
           <div className="flex items-center justify-center text-yellow-400">
-            <PixelLightningIcon size={16} />
+            <PixelLightningIcon size={18} />
           </div>
-          <h3 className="text-[13.5px] font-bold text-white tracking-tight">
+          <h3 className="text-[14px] font-bold text-white tracking-tight">
             Security Activity
           </h3>
-          <button
-            title="Activity reflects event evaluation decisions over the selected period"
-            className="text-[#7d77a8] hover:text-[#c4bbf0] transition-colors ml-0.5"
-          >
-            <PixelInfoIcon size={13} />
-          </button>
+          <PixelInfoTooltip
+            title="Security Activity"
+            content="Chronological timeline of agent evaluation events over the active timeframe, plotting Allowed, Review, and Blocked volumes."
+            tip="Hover over any point along the curve to see exact metrics"
+            align="left"
+          />
         </div>
 
-        {/* Dropdown filter */}
-        <div className="relative">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium text-white bg-[#221f45] border border-[#39316d] rounded-md hover:border-[#52479e] transition-colors shadow-xs"
-          >
-            <span>{granularity}</span>
-            <ChevronDown size={12} className="text-[#9690c2]" />
-          </button>
+        {/* Header Stats & Filter */}
+        <div className="flex items-center gap-2.5">
+          <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-bold text-[#86efac] bg-[#123823] border border-[#22c55e]/30 rounded-md shadow-xs">
+            {chartData.peak}
+          </span>
 
-          {dropdownOpen && (
-            <div className="absolute right-0 mt-1 w-36 p-1 bg-[#1a1738] border border-[#3c3475] rounded-xl shadow-xl z-50">
-              {['Events (Hourly)', 'Events (Daily)', 'Events (Weekly)'].map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => {
-                    setGranularity(opt);
-                    setDropdownOpen(false);
-                  }}
-                  className={`flex items-center justify-between w-full px-2.5 py-1 text-xs rounded-md text-left ${
-                    granularity === opt
-                      ? 'bg-[#6d3ee8] text-white'
-                      : 'text-[#a49ecc] hover:bg-[#25204c] hover:text-white'
-                  }`}
-                >
-                  <span>{opt}</span>
-                  {granularity === opt && <Check size={12} />}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-white bg-[#221f45] border border-[#39316d] rounded-md hover:border-[#52479e] transition-colors shadow-xs"
+            >
+              <span>{granularity}</span>
+              <ChevronDown size={13} className="text-[#9690c2]" />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-1 w-36 p-1 bg-[#1a1738] border border-[#3c3475] rounded-xl shadow-xl z-50">
+                {['Events (Hourly)', 'Events (Daily)', 'Events (Weekly)'].map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      setGranularity(opt);
+                      setDropdownOpen(false);
+                    }}
+                    className={`flex items-center justify-between w-full px-2.5 py-1 text-xs rounded-md text-left ${
+                      granularity === opt
+                        ? 'bg-[#6d3ee8] text-white'
+                        : 'text-[#a49ecc] hover:bg-[#25204c] hover:text-white'
+                    }`}
+                  >
+                    <span>{opt}</span>
+                    {granularity === opt && <Check size={12} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Interactive Chart Area */}
-      <div className="relative w-full my-auto overflow-hidden">
-        {/* Tooltip */}
-        {hoveredPoint && (
-          <div className="absolute top-0 right-2 z-20 px-2 py-1 bg-[#14122b]/95 border border-[#483e84] rounded-md shadow-lg text-[10.5px] flex items-center gap-2.5">
-            <span className="font-bold text-white">{hoveredPoint.day}:</span>
-            <span className="text-[#22c55e] font-semibold">{hoveredPoint.allowed} Allowed</span>
-            <span className="text-[#eab308] font-semibold">{hoveredPoint.review} Review</span>
-            <span className="text-[#ef4444] font-semibold">{hoveredPoint.blocked} Blocked</span>
+      <div className="relative w-full my-auto overflow-visible py-2">
+        {/* Dynamic Floating Tooltip: Follows the exact point being hovered */}
+        {hoveredIdx !== null && activePoint && (
+          <div
+            className="absolute z-30 pointer-events-none transition-all duration-150 ease-out flex flex-col items-center -top-8"
+            style={{
+              left: `${activePercent}%`,
+              transform:
+                hoveredIdx === 0
+                  ? 'translateX(0%)'
+                  : hoveredIdx === data.length - 1
+                  ? 'translateX(-100%)'
+                  : 'translateX(-50%)',
+            }}
+          >
+            <div className="px-3 py-1.5 bg-[#14122b]/95 border border-[#6d3ee8] rounded-lg shadow-2xl text-xs font-mono flex items-center gap-2.5 backdrop-blur-md">
+              <span className="font-bold text-white uppercase tracking-wider">{activePoint.day}:</span>
+              <span className="text-[#4ade80] font-bold bg-[#143e26] px-1.5 py-0.5 rounded border border-[#22c55e]/40">
+                {activePoint.allowed} Allowed
+              </span>
+              <span className="text-[#facc15] font-bold bg-[#423311] px-1.5 py-0.5 rounded border border-[#eab308]/40">
+                {activePoint.review} Review
+              </span>
+              <span className="text-[#f87171] font-bold bg-[#4a1923] px-1.5 py-0.5 rounded border border-[#ef4444]/40">
+                {activePoint.blocked} Blocked
+              </span>
+            </div>
+            {/* Pointer arrow aligning directly above active vertical crosshair */}
+            <div className="w-2 h-2 bg-[#14122b] border-r border-b border-[#6d3ee8] transform rotate-45 -mt-1" />
           </div>
         )}
 
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-          className="w-full h-auto overflow-visible select-none"
+          className="w-full h-auto overflow-visible select-none cursor-crosshair"
           shapeRendering="geometricPrecision"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
         >
           {/* Y Axis Gridlines and Labels */}
-          {[800, 600, 400, 200, 0].map((val) => {
+          {chartData.ticks.map((val) => {
             const y = getY(val);
             return (
               <g key={val}>
@@ -137,29 +193,29 @@ export const SecurityActivityChart: React.FC = () => {
                   strokeDasharray={val === 0 ? undefined : '2,2'}
                 />
                 <text
-                  x={paddingLeft - 6}
-                  y={y + 3}
+                  x={paddingLeft - 8}
+                  y={y + 4}
                   textAnchor="end"
-                  fill="#7872a3"
-                  fontSize="9"
-                  fontWeight="500"
-                  fontFamily="'Pixelify Sans', 'VT323', monospace"
+                  fill="#c8c2ee"
+                  fontSize="12"
+                  fontWeight="600"
+                  fontFamily="'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
                 >
-                  {val}
+                  {val >= 1000 ? `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k` : val}
                 </text>
               </g>
             );
           })}
 
           {/* Area under Allowed line */}
-          <path d={allowedArea} fill="rgba(34, 197, 94, 0.12)" className="chart-area" />
+          <path d={allowedArea} fill="rgba(34, 197, 94, 0.16)" className="chart-area" />
 
           {/* Allowed Line (Green) */}
           <path
             d={allowedPath}
             fill="none"
             stroke="#22c55e"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="square"
             strokeLinejoin="round"
             pathLength={1}
@@ -171,7 +227,7 @@ export const SecurityActivityChart: React.FC = () => {
             d={reviewPath}
             fill="none"
             stroke="#eab308"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="square"
             strokeLinejoin="round"
             pathLength={1}
@@ -184,7 +240,7 @@ export const SecurityActivityChart: React.FC = () => {
             d={blockedPath}
             fill="none"
             stroke="#ef4444"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="square"
             strokeLinejoin="round"
             pathLength={1}
@@ -192,79 +248,82 @@ export const SecurityActivityChart: React.FC = () => {
             style={{ animationDelay: '260ms' }}
           />
 
-          {/* Square Pixel Markers */}
+          {/* Active Crosshair Guideline (Snaps directly to active point) */}
+          {hoveredIdx !== null && hoveredIdx < data.length && (
+            <line
+              x1={activeX}
+              y1={paddingTop}
+              x2={activeX}
+              y2={paddingTop + innerHeight}
+              stroke="#8b5cf6"
+              strokeWidth="1.5"
+              strokeDasharray="3,3"
+              className="pointer-events-none"
+            />
+          )}
+
+          {/* Square Pixel Markers & X-Axis Day Labels */}
           {data.map((d, i) => {
             const x = getX(i);
             const yAllowed = getY(d.allowed);
             const yReview = getY(d.review);
             const yBlocked = getY(d.blocked);
+            const isHovered = hoveredIdx === i;
 
             return (
-              <g
-                key={d.day}
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredPoint(d)}
-                onMouseLeave={() => setHoveredPoint(null)}
-              >
-                <rect
-                  x={x - 12}
-                  y={paddingTop}
-                  width="24"
-                  height={innerHeight}
-                  fill="transparent"
-                />
-
+              <g key={d.day} className="pointer-events-none">
                 {/* Allowed Marker */}
                 <rect
-                  x={x - 2.5}
-                  y={yAllowed - 2.5}
-                  width="5"
-                  height="5"
-                  fill="#22c55e"
-                  stroke="#121124"
-                  strokeWidth="1"
+                  x={isHovered ? x - 4 : x - 3}
+                  y={isHovered ? yAllowed - 4 : yAllowed - 3}
+                  width={isHovered ? 8 : 6}
+                  height={isHovered ? 8 : 6}
+                  fill={isHovered ? '#ffffff' : '#22c55e'}
+                  stroke={isHovered ? '#22c55e' : '#121124'}
+                  strokeWidth={isHovered ? 2 : 1}
                   shapeRendering="crispEdges"
-                  className="chart-point"
+                  className="chart-point transition-all duration-150"
                   style={{ animationDelay: `${350 + i * 80}ms` }}
                 />
 
                 {/* Review Marker */}
                 <rect
-                  x={x - 2.5}
-                  y={yReview - 2.5}
-                  width="5"
-                  height="5"
-                  fill="#eab308"
-                  stroke="#121124"
-                  strokeWidth="1"
+                  x={isHovered ? x - 4 : x - 3}
+                  y={isHovered ? yReview - 4 : yReview - 3}
+                  width={isHovered ? 8 : 6}
+                  height={isHovered ? 8 : 6}
+                  fill={isHovered ? '#ffffff' : '#eab308'}
+                  stroke={isHovered ? '#eab308' : '#121124'}
+                  strokeWidth={isHovered ? 2 : 1}
                   shapeRendering="crispEdges"
-                  className="chart-point"
+                  className="chart-point transition-all duration-150"
                   style={{ animationDelay: `${380 + i * 80}ms` }}
                 />
 
                 {/* Blocked Marker */}
                 <rect
-                  x={x - 2.5}
-                  y={yBlocked - 2.5}
-                  width="5"
-                  height="5"
-                  fill="#ef4444"
-                  stroke="#121124"
-                  strokeWidth="1"
+                  x={isHovered ? x - 4 : x - 3}
+                  y={isHovered ? yBlocked - 4 : yBlocked - 3}
+                  width={isHovered ? 8 : 6}
+                  height={isHovered ? 8 : 6}
+                  fill={isHovered ? '#ffffff' : '#ef4444'}
+                  stroke={isHovered ? '#ef4444' : '#121124'}
+                  strokeWidth={isHovered ? 2 : 1}
                   shapeRendering="crispEdges"
-                  className="chart-point"
+                  className="chart-point transition-all duration-150"
                   style={{ animationDelay: `${410 + i * 80}ms` }}
                 />
 
                 {/* Day Label */}
                 <text
                   x={x}
-                  y={chartHeight - 4}
+                  y={chartHeight - 6}
                   textAnchor="middle"
-                  fill="#8c85bd"
-                  fontSize="9.5"
-                  fontWeight="500"
-                  fontFamily="'Pixelify Sans', 'VT323', monospace"
+                  fill={isHovered ? '#ffffff' : '#d5d0f5'}
+                  fontSize={isHovered ? '13' : '12'}
+                  fontWeight={isHovered ? '700' : '600'}
+                  fontFamily="ui-sans-serif, system-ui, sans-serif"
+                  className="transition-all duration-150"
                 >
                   {d.day}
                 </text>
@@ -275,18 +334,18 @@ export const SecurityActivityChart: React.FC = () => {
       </div>
 
       {/* Bottom Chart Legend */}
-      <div className="flex items-center justify-center gap-5 pt-2 border-t border-[#25204c] text-[11px] font-medium">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-[#22c55e] rounded-xs shadow-xs" />
-          <span className="text-[#a49ecc]">Allowed</span>
+      <div className="flex items-center justify-center gap-6 pt-2.5 border-t border-[#25204c] text-xs font-semibold">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 bg-[#22c55e] rounded-xs shadow-xs" />
+          <span className="text-[#e2e0f8]">Allowed</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-[#eab308] rounded-xs shadow-xs" />
-          <span className="text-[#a49ecc]">Review</span>
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 bg-[#eab308] rounded-xs shadow-xs" />
+          <span className="text-[#e2e0f8]">Review</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-[#ef4444] rounded-xs shadow-xs" />
-          <span className="text-[#a49ecc]">Blocked</span>
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 bg-[#ef4444] rounded-xs shadow-xs" />
+          <span className="text-[#e2e0f8]">Blocked</span>
         </div>
       </div>
     </PixelCard>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { PixelCubeBoxIcon, PixelInfoIcon } from '../pixel/PixelIcons';
+import { PixelCubeBoxIcon } from '../pixel/PixelIcons';
+import { PixelInfoTooltip } from '../pixel/PixelInfoTooltip';
 import type { BenchmarkRunRecord } from './benchmarkTypes';
 
 interface CategoryResultsPanelProps {
@@ -7,7 +8,7 @@ interface CategoryResultsPanelProps {
 }
 
 export const CategoryResultsPanel: React.FC<CategoryResultsPanelProps> = ({ currentRun }) => {
-  const [showTooltip, setShowTooltip] = React.useState(false);
+
 
   return (
     <div className="relative p-[1.5px] bg-[#3a3273] hover:bg-[#453c85] pixel-corners shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-colors duration-150 h-full flex flex-col">
@@ -19,23 +20,11 @@ export const CategoryResultsPanel: React.FC<CategoryResultsPanelProps> = ({ curr
             <span className="text-sm font-bold text-white tracking-wide">
               Test Case Results by Category
             </span>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowTooltip(!showTooltip)}
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-                className="text-[#847ea8] hover:text-[#c4bbf0] transition-colors cursor-pointer"
-                title="About test case categories"
-              >
-                <PixelInfoIcon size={14} />
-              </button>
-              {showTooltip && (
-                <div className="absolute left-0 top-6 w-64 p-2.5 bg-[#1b1739] border border-[#443a7b] rounded-lg shadow-xl text-[11px] text-[#ded9f5] z-30 leading-relaxed pointer-events-none">
-                  Validation pass rates across six OWASP LLM and Agentic attack and authorization vector categories.
-                </div>
-              )}
-            </div>
+            <PixelInfoTooltip
+              title="Test Case Categories"
+              content="Validation pass rates across six OWASP LLM and Agentic attack and authorization vector categories."
+              align="left"
+            />
           </div>
         </div>
 

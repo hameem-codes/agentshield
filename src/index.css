@@ -3,7 +3,7 @@
 /* Use the pixel font for every Tailwind font family utility (font-sans, font-mono, font-pixel). */
 @theme {
   --font-sans: 'Pixelify Sans', 'VT323', monospace;
-  --font-mono: 'Pixelify Sans', 'VT323', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   --font-pixel: 'Pixelify Sans', 'VT323', monospace;
 }
 
@@ -62,7 +62,10 @@
 }
 
 /* Safety net: any leftover monospace/sans utility still renders in the pixel font. */
-.font-mono,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
 .font-sans,
 .font-serif {
   font-family: 'Pixelify Sans', 'VT323', monospace;
