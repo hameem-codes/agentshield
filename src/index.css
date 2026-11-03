@@ -306,10 +306,158 @@
   .chart-point,
   .donut-segment,
   .bar-grow,
-  .stat-fade-up {
+  .stat-fade-up,
+  .fade-in-up,
+  .scale-in,
+  .slide-in-right,
+  .tooltip-in,
+  .typewriter {
     animation-duration: 1ms;
     animation-delay: 0ms !important;
   }
+}
+
+/* Text & Entrance Animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-in {
+  animation: scale-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right {
+  animation: slide-in-right 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typewriter 1000ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Tooltip Animation */
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.tooltip-in {
+  animation: tooltip-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Pulse Highlight for cross-chart sync */
+@keyframes pulse-highlight {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pulse-highlight {
+  animation: pulse-highlight 1000ms ease-in-out infinite;
+}
+
+/* Series Toggle Animation */
+@keyframes series-fade {
+  from { opacity: 1; stroke-width: 2.5; }
+  to { opacity: 0.2; stroke-width: 1; }
+}
+
+.series-hidden {
+  animation: series-fade 200ms ease-out forwards;
+}
+
+.series-visible {
+  animation: series-fade 200ms ease-out reverse forwards;
+}
+
+/* Card Stagger Entrance */
+@keyframes card-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-stagger-in {
+  animation: card-stagger-in 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Number Counter Pulse */
+@keyframes counter-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.counter-pulse {
+  animation: counter-pulse 300ms ease-out;
+}
+
+/* Chart Grid Line Fade */
+@keyframes grid-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.grid-fade-in {
+  animation: grid-fade-in 800ms ease-out 300ms both;
+}
+
+/* Axis Label Fade */
+@keyframes axis-label-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.axis-label-in {
+  animation: axis-label-in 400ms ease-out 500ms both;
 }
 
 /* Custom scrollbars */
