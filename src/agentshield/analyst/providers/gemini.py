@@ -93,7 +93,7 @@ def build_gemini_schema(model_or_schema: Any = AnalysisReport) -> dict[str, Any]
 
 class GeminiProvider(LLMProvider):
     """Google Gemini model provider using the official google-genai SDK.
-    
+
     Adheres strictly to the LLMProvider abstraction. All outgoing prompts
     are scrubbed of sensitive secrets before dispatch.
     """
@@ -108,6 +108,9 @@ class GeminiProvider(LLMProvider):
         use_schema_constraint: bool = True,
         redact_prompt: bool = True,
         client: Optional[Any] = None,
+        circuit_breaker: Optional[Any] = None,
+        token_tracker: Optional[Any] = None,
+        token_budget: Optional[int] = None,
     ):
         raw_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         self._api_key = raw_key.strip() if raw_key else None
@@ -116,6 +119,18 @@ class GeminiProvider(LLMProvider):
             or os.environ.get("AGENTSHIELD_ANALYST_MODEL")
             or DEFAULT_GEMINI_MODEL
         )
+
+        from agentshield.reliability.circuit_breaker import CircuitBreaker
+        from agentshield.reliability.limits import TokenBudgetTracker
+
+        self.circuit_breaker = circuit_breaker or CircuitBreaker(
+            service_name="gemini",
+            failure_threshold=int(os.environ.get("AGENTSHIELD_CB_FAILURE_THRESHOLD", "3")),
+            recovery_timeout=float(os.environ.get("AGENTSHIELD_CB_RECOVERY_TIMEOUT", "30.0")),
+            half_open_success_threshold=int(os.environ.get("AGENTSHIELD_CB_HALF_OPEN_THRESHOLD", "1")),
+        )
+        self.token_tracker = token_tracker or TokenBudgetTracker()
+        self.token_budget = token_budget or int(os.environ.get("AGENTSHIELD_MAX_TOKEN_BUDGET", "100000"))
 
         raw_env_timeout = os.environ.get("AGENTSHIELD_ANALYST_TIMEOUT")
         raw_timeout = raw_env_timeout if raw_env_timeout is not None else timeout
@@ -164,7 +179,7 @@ class GeminiProvider(LLMProvider):
     @property
     def timeout_ms(self) -> int:
         """Converts timeout to milliseconds for google-genai HttpOptions.
-        
+
         AgentShield timeout is specified in seconds (e.g. 30.0, 45.0, 0.5).
         google-genai types.HttpOptions expects timeout in milliseconds.
         """
@@ -188,97 +203,136 @@ class GeminiProvider(LLMProvider):
 
     def generate_analysis(self, prompt: str, system_prompt: str) -> str:
         """Sends sanitized telemetry to Gemini and returns raw JSON response text.
-        
+
         Applies exponential backoff retries for transient errors and raises
         ProviderError for persistent or non-transient failures.
         """
-        # Ensure API key is available
-        if not self._client:
-            api_key = self._api_key or os.environ.get("GEMINI_API_KEY")
-            if not api_key:
-                raise ProviderError(
-                    "Gemini API key is not configured. Set the GEMINI_API_KEY environment variable "
-                    "or pass api_key to GeminiProvider."
-                )
-            self._api_key = api_key
-            self._client = self._init_client(api_key)
+        from agentshield.reliability.circuit_breaker import CircuitState, CircuitBreakerOpenError
+        from agentshield.reliability.limits import TokenBudgetExceededError
 
-        # Redact secrets from telemetry before transmitting off-box
-        sanitized_prompt = redact_text_secrets(prompt) if self.redact_prompt else prompt
-        sanitized_system = redact_text_secrets(system_prompt) if self.redact_prompt else system_prompt
+        # Acquire circuit breaker execution slot (enforces single-probe concurrency in HALF_OPEN)
+        if hasattr(self, "circuit_breaker") and self.circuit_breaker:
+            self.circuit_breaker.acquire_execution()
 
-        # Configure request with schema constraints
-        config_kwargs: dict[str, Any] = {
-            "system_instruction": sanitized_system,
-            "temperature": 0.1,  # Low temperature for stable deterministic security evaluation
-        }
-
-        if types:
-            config_kwargs["http_options"] = types.HttpOptions(timeout=self.timeout_ms)
-            if self.use_schema_constraint:
-                config_kwargs["response_mime_type"] = "application/json"
-                config_kwargs["response_schema"] = self.build_response_schema()
-            else:
-                config_kwargs["response_mime_type"] = "application/json"
-            config = types.GenerateContentConfig(**config_kwargs)
-        else:
-            config = config_kwargs
-
-        last_error: Optional[Exception] = None
-
-        for attempt in range(self.max_retries + 1):
-            try:
-                response = self._client.models.generate_content(
-                    model=self._model,
-                    contents=sanitized_prompt,
-                    config=config,
-                )
-
-                if response is None:
-                    raise ProviderError(f"Gemini model '{self._model}' returned a null response.")
-
-                # Inspect candidates for safety blocks
-                candidates = getattr(response, "candidates", None)
-                if candidates:
-                    finish_reason = getattr(candidates[0], "finish_reason", None)
-                    if finish_reason:
-                        finish_str = str(finish_reason).upper()
-                        if "SAFETY" in finish_str:
-                            raise ProviderError(f"Gemini response was blocked by safety filters (finish_reason: {finish_reason}).")
-
-                try:
-                    text = getattr(response, "text", None)
-                except Exception as text_err:
+        try:
+            # Ensure API key is available
+            if not self._client:
+                api_key = self._api_key or os.environ.get("GEMINI_API_KEY")
+                if not api_key:
                     raise ProviderError(
-                        f"Gemini model '{self._model}' response could not be read: {self._sanitize_error(text_err)}"
-                    ) from None
+                        "Gemini API key is not configured. Set the GEMINI_API_KEY environment variable "
+                        "or pass api_key to GeminiProvider."
+                    )
+                self._api_key = api_key
+                self._client = self._init_client(api_key)
 
-                if not text or not text.strip():
-                    raise ProviderError(f"Gemini model '{self._model}' returned an empty response.")
+            # Redact secrets from telemetry before transmitting off-box
+            sanitized_prompt = redact_text_secrets(prompt) if self.redact_prompt else prompt
+            sanitized_system = redact_text_secrets(system_prompt) if self.redact_prompt else system_prompt
 
-                return text.strip()
+            # Configure request with schema constraints
+            config_kwargs: dict[str, Any] = {
+                "system_instruction": sanitized_system,
+                "temperature": 0.1,  # Low temperature for stable deterministic security evaluation
+            }
 
-            except ProviderError:
-                raise
-            except Exception as e:
-                last_error = e
-                # Check if error is transient and eligible for retry
-                if not self._is_transient_error(e) or attempt >= self.max_retries:
-                    break
-
-                retry_after = self._extract_retry_after(e)
-                if retry_after is not None and retry_after > 0:
-                    if retry_after > self.timeout:
-                        # Retry-After exceeds client timeout budget; fail fast
-                        break
-                    sleep_time = retry_after
+            if types:
+                config_kwargs["http_options"] = types.HttpOptions(timeout=self.timeout_ms)
+                if self.use_schema_constraint:
+                    config_kwargs["response_mime_type"] = "application/json"
+                    config_kwargs["response_schema"] = self.build_response_schema()
                 else:
-                    sleep_time = self.backoff_factor * (2 ** attempt)
+                    config_kwargs["response_mime_type"] = "application/json"
+                config = types.GenerateContentConfig(**config_kwargs)
+            else:
+                config = config_kwargs
 
-                sleep_time = min(sleep_time, self.timeout)
-                time.sleep(sleep_time)
+            last_error: Optional[Exception] = None
 
-        raise self._map_exception(last_error)
+            for attempt in range(self.max_retries + 1):
+                try:
+                    response = self._client.models.generate_content(
+                        model=self._model,
+                        contents=sanitized_prompt,
+                        config=config,
+                    )
+
+                    if response is None:
+                        raise ProviderError(f"Gemini model '{self._model}' returned a null response.")
+
+                    # Inspect candidates for safety blocks
+                    candidates = getattr(response, "candidates", None)
+                    if candidates:
+                        finish_reason = getattr(candidates[0], "finish_reason", None)
+                        if finish_reason:
+                            finish_str = str(finish_reason).upper()
+                            if "SAFETY" in finish_str:
+                                raise ProviderError(f"Gemini response was blocked by safety filters (finish_reason: {finish_reason}).")
+
+                    try:
+                        text = getattr(response, "text", None)
+                    except Exception as text_err:
+                        raise ProviderError(
+                            f"Gemini model '{self._model}' response could not be read: {self._sanitize_error(text_err)}"
+                        ) from None
+
+                    if not text or not text.strip():
+                        raise ProviderError(f"Gemini model '{self._model}' returned an empty response.")
+
+                    if hasattr(self, "circuit_breaker") and self.circuit_breaker:
+                        self.circuit_breaker.record_success()
+
+                    # Track token budget
+                    if hasattr(self, "token_tracker") and self.token_tracker:
+                        usage_meta = getattr(response, "usage_metadata", None)
+                        total_tokens = getattr(usage_meta, "total_token_count", None) if usage_meta else None
+                        if total_tokens is None or not isinstance(total_tokens, int):
+                            total_tokens = max(1, (len(sanitized_prompt) + len(text)) // 4)
+                        try:
+                            self.token_tracker.record_and_check(
+                                context_id=self._model,
+                                tokens=total_tokens,
+                                budget=self.token_budget,
+                            )
+                        except TokenBudgetExceededError as tbe:
+                            raise ProviderError(str(tbe)) from tbe
+
+                    return text.strip()
+
+                except ProviderError:
+                    if hasattr(self, "circuit_breaker") and self.circuit_breaker:
+                        self.circuit_breaker.record_failure()
+                    raise
+                except Exception as e:
+                    last_error = e
+                    # Check if error is transient and eligible for retry
+                    if not self._is_transient_error(e) or attempt >= self.max_retries:
+                        break
+
+                    retry_after = self._extract_retry_after(e)
+                    if retry_after is not None and retry_after > 0:
+                        if retry_after > self.timeout:
+                            # Retry-After exceeds client timeout budget; fail fast
+                            break
+                        sleep_time = retry_after
+                    else:
+                        sleep_time = self.backoff_factor * (2 ** attempt)
+
+                    sleep_time = min(sleep_time, self.timeout)
+                    time.sleep(sleep_time)
+
+            if hasattr(self, "circuit_breaker") and self.circuit_breaker:
+                self.circuit_breaker.record_failure(last_error)
+            try:
+                from agentshield.observability import get_operational_logger, get_metrics_collector
+                get_operational_logger().log_provider_failure("gemini", str(last_error))
+                get_metrics_collector().record_provider_failure("gemini")
+            except Exception:
+                pass
+            raise self._map_exception(last_error)
+        finally:
+            if hasattr(self, "circuit_breaker") and self.circuit_breaker:
+                self.circuit_breaker.release_probe()
 
     def _extract_retry_after(self, e: Exception) -> Optional[float]:
         """Extracts Retry-After duration from exception headers or attributes if present."""
