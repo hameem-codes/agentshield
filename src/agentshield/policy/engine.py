@@ -1,9 +1,14 @@
+from urllib.parse import urlparse
 from agentshield.models import Action, PolicyResult
 from agentshield.policy.rules import PolicyConfiguration
 
 class PolicyEngine:
     def __init__(self, config: PolicyConfiguration = None):
         self.config = config or PolicyConfiguration()
+
+    @property
+    def version_hash(self) -> str:
+        return self.config.compute_version_hash()
 
     @property
     def known_tools(self) -> set[str]:
@@ -20,7 +25,6 @@ class PolicyEngine:
         if action.tool not in self.known_tools:
             results.append(PolicyResult(passed=False, rule="unknown_tool", reason=f"Unknown tool: {action.tool}"))
             return results
-
         # 1. Agent existence and allowed tools
         agent_config = self.config.agents.get(action.agent)
         if not agent_config:
@@ -45,6 +49,44 @@ class PolicyEngine:
                 else:
                     results.append(PolicyResult(passed=True, rule="required_permission", reason=f"Has permission: {req_perm}"))
             
+            # Destination hostname allowlist (never substring)
+            url_or_host = action.arguments.get("url") or action.arguments.get("destination") or action.arguments.get("host")
+            if url_or_host and isinstance(url_or_host, str):
+                parsed = urlparse(url_or_host if "://" in url_or_host else f"//{url_or_host}")
+                hostname = (parsed.hostname or "").lower()
+
+                # Check agent allowlist if configured
+                if agent_config.allowed_destinations:
+                    allowed_hosts = {h.lower() for h in agent_config.allowed_destinations}
+                    if hostname not in allowed_hosts:
+                        results.append(PolicyResult(
+                            passed=False,
+                            rule="destination_allowlist",
+                            reason=f"Destination hostname '{hostname}' is not in agent allowed destinations"
+                        ))
+                    else:
+                        results.append(PolicyResult(passed=True, rule="destination_allowlist", reason="Destination allowed for agent"))
+                elif tool_rule.allowed_destinations:
+                    allowed_hosts = {h.lower() for h in tool_rule.allowed_destinations}
+                    if hostname not in allowed_hosts:
+                        results.append(PolicyResult(
+                            passed=False,
+                            rule="destination_allowlist",
+                            reason=f"Destination hostname '{hostname}' is not in tool allowed destinations"
+                        ))
+                    else:
+                        results.append(PolicyResult(passed=True, rule="destination_allowlist", reason="Destination allowed for tool"))
+
+            # Argument schema validation
+            if tool_rule.argument_schema:
+                for param, expected_type in tool_rule.argument_schema.items():
+                    if param in action.arguments and not isinstance(action.arguments[param], expected_type):
+                        results.append(PolicyResult(
+                            passed=False,
+                            rule="argument_schema",
+                            reason=f"Argument '{param}' must be of type {expected_type.__name__}"
+                        ))
+
             quantity = action.arguments.get("quantity")
             if quantity is not None:
                 if isinstance(quantity, (int, float)) and quantity > tool_rule.max_quantity:

@@ -8,11 +8,20 @@ version = "0.1.0"
 description = "An open-source runtime security and control layer for AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.100.0",
+    "pydantic>=2.0",
+    "uvicorn>=0.20.0",
+    "google-genai>=0.1.0",
+]
 
 [project.optional-dependencies]
+postgres = [
+    "psycopg[binary]>=3.1.0",
+]
 dev = [
     "pytest>=7.0",
+    "httpx>=0.24.0",
 ]
 
 [tool.pytest.ini_options]

@@ -4,13 +4,13 @@ export interface PathStop {
   id: number;
   label: string;
   description: string;
-  category: "proposal" | "security" | "execution" | "audit";
+  category?: "proposal" | "security" | "execution" | "audit";
 }
 
 interface WindingPathProps {
   stops: PathStop[];
   activeStopIndex?: number;
-  onSelectStop?: (stop: PathStop) => void;
+  onSelectStop?: (stop: PathStop, index: number) => void;
 }
 
 export const WindingPath: React.FC<WindingPathProps> = ({
@@ -18,151 +18,220 @@ export const WindingPath: React.FC<WindingPathProps> = ({
   activeStopIndex = 0,
   onSelectStop,
 }) => {
-  // SVG coordinates for a balanced winding 7-stop pipeline path (e.g. S-curve / zig-zag)
-  // Stops: (1) Propose -> (2) Validate -> (3) Risk -> (4) Policy -> (5) Decision -> (6) Execute -> (7) Audit
-  const coordinates = [
-    { x: 60, y: 70 },
-    { x: 190, y: 50 },
-    { x: 310, y: 90 },
-    { x: 440, y: 55 },
-    { x: 570, y: 95 },
-    { x: 690, y: 60 },
-    { x: 800, y: 85 },
+  // Path requested:
+  // viewBox 0 0 1140 1090
+  // d="M140,190 C600,170 960,150 990,300 C1020,450 780,470 520,480 C250,490 80,540 110,680 C140,820 600,760 900,800 C1010,815 1030,900 960,960"
+  // 3 strokes: grey outline 74, black 64, cream 56 + dashed ink stroke (dasharray "1.5 52") for tile dividers
+  // Stops at (462,178) (990,300) (520,480) (202,531) (404,777) (900,800) (960,960)
+  // Numbered circles, varied stage labels (italic, vertical, letter-spaced), START flag at beginning
+  const curveD =
+    "M140,190 C600,170 960,150 990,300 C1020,450 780,470 520,480 C250,490 80,540 110,680 C140,820 600,760 900,800 C1010,815 1030,900 960,960";
+
+  const stopCoords = [
+    { x: 462, y: 178, labelX: 462, labelY: 130, align: "middle", style: "italic" },
+    { x: 990, y: 300, labelX: 1040, labelY: 305, align: "start", style: "vertical" },
+    { x: 520, y: 480, labelX: 520, labelY: 535, align: "middle", style: "spaced" },
+    { x: 202, y: 531, labelX: 145, labelY: 535, align: "end", style: "italic" },
+    { x: 404, y: 777, labelX: 404, labelY: 835, align: "middle", style: "bold" },
+    { x: 900, y: 800, labelX: 900, labelY: 755, align: "middle", style: "spaced" },
+    { x: 960, y: 960, labelX: 960, labelY: 1015, align: "middle", style: "vertical" },
   ];
 
-  // SVG curved path connecting all coordinates smoothly
-  const pathD = coordinates.reduce((acc, point, index) => {
-    if (index === 0) return `M ${point.x} ${point.y}`;
-    const prev = coordinates[index - 1];
-    const midX = (prev.x + point.x) / 2;
-    return `${acc} C ${midX} ${prev.y}, ${midX} ${point.y}, ${point.x} ${point.y}`;
-  }, "");
-
   return (
-    <div className="w-full overflow-x-auto py-4">
-      <div className="min-w-[860px] px-4">
-        <svg
-          viewBox="0 0 860 160"
-          className="w-full h-auto drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
-        >
-          <defs>
-            <linearGradient id="pathGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#38bdf8" />
-              <stop offset="35%" stopColor="#818cf8" />
-              <stop offset="65%" stopColor="#c084fc" />
-              <stop offset="100%" stopColor="#34d399" />
-            </linearGradient>
-            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
+    <div className="w-full relative overflow-visible select-none">
+      <svg
+        viewBox="0 0 1140 1090"
+        className="w-full h-auto drop-shadow-2xl overflow-visible"
+        style={{ maxWidth: "100%" }}
+      >
+        <defs>
+          <filter id="chipShadow" x="-20%" y="-20%" width="150%" height="150%">
+            <feDropShadow dx="4" dy="4" stdDeviation="0" floodColor="#000000" />
+          </filter>
+        </defs>
 
-          {/* Background glowing path line */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke="url(#pathGradient)"
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeOpacity="0.25"
+        {/* 1. Grey outline: width 74 */}
+        <path
+          d={curveD}
+          fill="none"
+          stroke="#4a473d"
+          strokeWidth="74"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* 2. Black stroke: width 64 */}
+        <path
+          d={curveD}
+          fill="none"
+          stroke="#000000"
+          strokeWidth="64"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* 3. Cream core fill: width 56 */}
+        <path
+          d={curveD}
+          fill="none"
+          stroke="#f4ecd0"
+          strokeWidth="56"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* 4. Dashed ink stroke for tile dividers: dasharray "1.5 52" */}
+        <path
+          d={curveD}
+          fill="none"
+          stroke="#17150d"
+          strokeWidth="56"
+          strokeDasharray="1.5 52"
+          strokeLinecap="butt"
+          strokeLinejoin="round"
+          opacity="0.85"
+        />
+
+        {/* START flag at (140, 190) */}
+        <g transform="translate(100, 130)">
+          {/* Flag pole */}
+          <line x1="20" y1="10" x2="20" y2="70" stroke="#000000" strokeWidth="4" strokeLinecap="round" />
+          <line x1="20" y1="10" x2="20" y2="70" stroke="#f4ecd0" strokeWidth="2" strokeLinecap="round" />
+          {/* Flag banner */}
+          <polygon
+            points="22,12 85,26 22,40"
+            fill="#ff8fb1"
+            stroke="#000000"
+            strokeWidth="3"
+            style={{ filter: "drop-shadow(3px 3px 0px #000000)" }}
           />
+          <text
+            x="36"
+            y="29"
+            fill="#17150d"
+            fontFamily="'Archivo', sans-serif"
+            fontWeight="900"
+            fontStyle="italic"
+            fontSize="10"
+            letterSpacing="1px"
+          >
+            START
+          </text>
+        </g>
 
-          {/* Main animated connecting dashed path */}
-          <path
-            d={pathD}
-            fill="none"
-            stroke="url(#pathGradient)"
-            strokeWidth="3.5"
-            strokeLinecap="round"
-            strokeDasharray="6 4"
-            className="transition-all duration-500"
-          />
+        {/* 7 Numbered Stops */}
+        {stops.map((stop, idx) => {
+          const coord = stopCoords[idx] || {
+            x: 200 + idx * 100,
+            y: 200,
+            labelX: 200 + idx * 100,
+            labelY: 240,
+            align: "middle",
+            style: "italic",
+          };
+          const isSelected = idx === activeStopIndex;
 
-          {/* Render 7 stops */}
-          {stops.map((stop, idx) => {
-            const pos = coordinates[idx] || { x: 50 + idx * 110, y: 70 };
-            const isActive = idx === activeStopIndex;
-            const isPassed = idx < activeStopIndex;
-
-            return (
-              <g
-                key={stop.id}
-                className="cursor-pointer group"
-                onClick={() => onSelectStop && onSelectStop(stop)}
-              >
-                {/* Active pulse aura */}
-                {isActive && (
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r="24"
-                    fill="#38bdf8"
-                    fillOpacity="0.15"
-                    className="animate-ping"
-                  />
-                )}
-
-                {/* Base circle background */}
+          return (
+            <g
+              key={stop.id}
+              className="cursor-pointer group"
+              onClick={() => onSelectStop && onSelectStop(stop, idx)}
+            >
+              {/* Outer selection ring if active */}
+              {isSelected && (
                 <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r="18"
-                  fill="#0f172a"
-                  stroke={
-                    isActive
-                      ? "#38bdf8"
-                      : isPassed
-                      ? "#818cf8"
-                      : "#334155"
-                  }
-                  strokeWidth={isActive ? "3" : "2"}
-                  filter={isActive ? "url(#glow)" : undefined}
-                  className="transition-all duration-300 group-hover:stroke-sky-400"
+                  cx={coord.x}
+                  cy={coord.y}
+                  r="30"
+                  fill="none"
+                  stroke="#ff8fb1"
+                  strokeWidth="4"
+                  strokeDasharray="4 3"
                 />
+              )}
 
-                {/* Stop number */}
-                <text
-                  x={pos.x}
-                  y={pos.y + 5}
-                  textAnchor="middle"
-                  fill={isActive ? "#38bdf8" : "#94a3b8"}
-                  fontSize="13"
-                  fontWeight="bold"
-                  fontFamily="monospace"
-                >
-                  {stop.id}
-                </text>
+              {/* Stop Numbered Circle with 3px black border & 4px offset shadow */}
+              <circle
+                cx={coord.x + 3}
+                cy={coord.y + 3}
+                r="20"
+                fill="#000000"
+              />
+              <circle
+                cx={coord.x}
+                cy={coord.y}
+                r="20"
+                fill={isSelected ? "#ff8fb1" : "#f4ecd0"}
+                stroke="#000000"
+                strokeWidth="3.5"
+                className="transition-colors duration-200 group-hover:fill-[#ff8fb1]"
+              />
 
-                {/* Label text under or above the point */}
-                <text
-                  x={pos.x}
-                  y={pos.y + (pos.y > 70 ? 32 : -26)}
-                  textAnchor="middle"
-                  fill={isActive ? "#f8fafc" : "#cbd5e1"}
-                  fontSize="12"
-                  fontWeight="600"
-                  className="transition-colors group-hover:fill-sky-300"
-                >
-                  {stop.label}
-                </text>
+              {/* Number */}
+              <text
+                x={coord.x}
+                y={coord.y + 7}
+                textAnchor="middle"
+                fill="#17150d"
+                fontFamily="'Archivo', sans-serif"
+                fontWeight="900"
+                fontStyle="italic"
+                fontSize="18"
+              >
+                {stop.id}
+              </text>
 
-                {/* Subtitle brief */}
+              {/* Stage label with varied typographical treatments */}
+              {coord.style === "vertical" ? (
                 <text
-                  x={pos.x}
-                  y={pos.y + (pos.y > 70 ? 44 : -14)}
+                  x={coord.labelX}
+                  y={coord.labelY}
                   textAnchor="middle"
-                  fill="#64748b"
-                  fontSize="9.5"
-                  fontFamily="sans-serif"
+                  fill={isSelected ? "#ff8fb1" : "#f4ecd0"}
+                  fontFamily="'Archivo', sans-serif"
+                  fontWeight="900"
+                  fontStyle="italic"
+                  fontSize="15"
+                  letterSpacing="3px"
+                  style={{ writingMode: "vertical-rl", textOrientation: "upright" }}
+                  className="transition-colors group-hover:fill-[#ff8fb1]"
                 >
-                  {stop.description}
+                  {stop.label.toUpperCase()}
                 </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+              ) : coord.style === "spaced" ? (
+                <text
+                  x={coord.labelX}
+                  y={coord.labelY}
+                  textAnchor={coord.align as "start" | "middle" | "end"}
+                  fill={isSelected ? "#ff8fb1" : "#f4ecd0"}
+                  fontFamily="'Archivo', sans-serif"
+                  fontWeight="800"
+                  fontSize="15"
+                  letterSpacing="4px"
+                  className="transition-colors group-hover:fill-[#ff8fb1]"
+                >
+                  {stop.label.toUpperCase()}
+                </text>
+              ) : (
+                <text
+                  x={coord.labelX}
+                  y={coord.labelY}
+                  textAnchor={coord.align as "start" | "middle" | "end"}
+                  fill={isSelected ? "#ff8fb1" : "#f4ecd0"}
+                  fontFamily="'Archivo', sans-serif"
+                  fontWeight="900"
+                  fontStyle="italic"
+                  fontSize="16"
+                  letterSpacing="1px"
+                  className="transition-colors group-hover:fill-[#ff8fb1]"
+                >
+                  {stop.label.toUpperCase()}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 };
