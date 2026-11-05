@@ -179,3 +179,57 @@ class RiskEngine:
             severity=severity,
             factors=unique_factors
         )
+
+    def get_registered_factors(self) -> List[FactorDefinition]:
+        """Returns the canonical list of factor definitions evaluated by this risk engine."""
+        from agentshield.detector.prompt_injection import HEURISTIC_PATTERNS
+        factors = [
+            FactorDefinition(
+                name="destructive_tool",
+                weight=85.0,
+                explanation="Action targets potentially destructive tool or database operation",
+            ),
+            FactorDefinition(
+                name="financial_impact",
+                weight=40.0,
+                explanation="Action performs financial or monetary transaction",
+            ),
+            FactorDefinition(
+                name="high_quantity_bulk",
+                weight=50.0,
+                explanation="Operation quantity exceeds high bulk threshold (>50)",
+            ),
+            FactorDefinition(
+                name="elevated_quantity",
+                weight=35.0,
+                explanation="Operation quantity exceeds standard threshold (>10)",
+            ),
+            FactorDefinition(
+                name="high_transaction_amount",
+                weight=50.0,
+                explanation="Transaction amount is exceptionally high (>5000)",
+            ),
+            FactorDefinition(
+                name="elevated_transaction_amount",
+                weight=30.0,
+                explanation="Transaction amount is elevated (>1000)",
+            ),
+            FactorDefinition(
+                name="privileged_agent",
+                weight=20.0,
+                explanation="Action executed by high-privilege administrative agent",
+            ),
+            FactorDefinition(
+                name="destructive_command_pattern",
+                weight=90.0,
+                explanation="User input contains explicit destructive command syntax",
+            ),
+        ]
+        for pattern_id, severity, _, explanation in HEURISTIC_PATTERNS:
+            weight = 85.0 if severity == RiskLevel.CRITICAL else (60.0 if severity == RiskLevel.HIGH else 30.0)
+            factors.append(FactorDefinition(
+                name=f"injection_{pattern_id}",
+                weight=weight,
+                explanation=explanation,
+            ))
+        return factors

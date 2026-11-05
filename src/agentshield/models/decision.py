@@ -1,5 +1,6 @@
 from enum import Enum
 from dataclasses import dataclass
+from typing import Any, Optional
 from .risk import RiskLevel
 
 class DecisionValue(Enum):
@@ -16,6 +17,9 @@ class Decision:
     severity: RiskLevel
     agent: str
     tool: str
+    arguments: Optional[Any] = None
+    trace_id: Optional[str] = None
+    correlation_id: Optional[str] = None
     
     def __post_init__(self):
         if not isinstance(self.allowed, bool):

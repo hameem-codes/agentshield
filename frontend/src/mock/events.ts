@@ -10,6 +10,8 @@ export interface SecurityEvent {
   reasons: string[];
   executionStatus: "executed" | "not_executed" | "error";
   isLive: boolean; // true = [live], false = mock/demo
+  correlation_id?: string | null;
+  trace_id?: string | null;
 }
 
 export interface SecurityStats {
