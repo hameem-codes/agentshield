@@ -6,6 +6,30 @@
 
 AgentShield is an open-source, framework-independent Python runtime security SDK and enforcement layer for tool-using AI agents. When an AI agent proposes an action, AgentShield authenticates the agent, validates argument schemas, computes deterministic risk scores, and applies code-defined deterministic security policies (`ALLOW` / `REVIEW` / `BLOCK`). Only permitted actions are executed; every evaluation and execution is recorded to a cryptographically chained audit ledger.
 
+```
++--------------------+        +-----------------------+        +---------------+
+|     AI Agent       | -----> |      AgentShield      | -----> | External Tool |
+| (Proposes Action)  |        | (Runtime Interceptor) |        | / API Action  |
++--------------------+        +-----------------------+        +---------------+
+                                      |       |
+                         [Evaluate Policy]   [Human Review]
+                                      |       |
+                                  [Blocked / Allowed]
+```
+
+---
+
+## Features & Screens
+
+AgentShield includes a retro 16-bit pixel-art security dashboard providing full runtime visibility and control:
+
+- **Overview Dashboard**: Agent runtime metrics, active risk score indicators, real-time security activity stream, attention queue, and quick actions.
+- **Events Screen**: Complete audit trail of every intercepted agent action with real-time search, multi-attribute filters, and slide-over event payload inspection drawer.
+- **Human-in-the-Loop Review**: Dedicated review queue for high-risk actions requiring administrative approval, complete with argument inspection, policy checks, denial reasons, and batch approval.
+- **Policies & Agents**: Centralized security policy management (allowed tools, rate limits, domain restrictions, behavior rules) alongside a full agent runtime registry.
+- **Security Benchmarks**: Evaluates protection effectiveness against OWASP Agentic vectors (prompt injection, tool misuse, privilege escalation, SSRF, volume limits), comparing baseline execution against AgentShield protected mode.
+- **Settings & Telemetry**: Safe inspection of non-secret runtime limits, environment configuration, and active policy hashes with zero secret leakage.
+
 ---
 
 ## Non-Negotiable Security Principles
@@ -21,7 +45,7 @@ AgentShield is an open-source, framework-independent Python runtime security SDK
 
 ---
 
-## Architecture & Technology Stack
+## Tech Stack & Architecture
 
 - **Core SDK**: Python 3.12+ / 3.13 / 3.14 (`src/` layout, dataclasses, frozen models)
 - **Deterministic Policy Engine**: Code-declared `PolicyConfiguration` with immutable `version_hash`
@@ -102,7 +126,7 @@ Open `.env` in your text editor and set the values described below:
 | Variable | Description | Where to Enter / How to Obtain |
 | :--- | :--- | :--- |
 | `AGENTSHIELD_STORAGE_BACKEND` | Active storage backend: `sqlite` or `postgres`. | Keep `sqlite` for zero-setup local dev. |
-| `AGENTSHIELD_DATABASE_URL` | PostgreSQL connection string with SSL mode. | Optional locally; required if testing with PostgreSQL (e.g. `postgresql://user:pass@localhost:5432/agentshield?sslmode=disable`). |
+| `AGENTSHIELD_DATABASE_URL` | PostgreSQL connection string with SSL mode. | Optional locally; required if testing with PostgreSQL. |
 | `AGENTSHIELD_AUDIT_DB` | SQLite audit file path (default: `agentshield_audit.db`). | Optional; customize if storing DB in a specific folder. |
 
 #### 4. LLM Security Analyst (Optional)
@@ -183,44 +207,7 @@ For multi-instance or serverless Vercel deployments, configure a managed Postgre
 
 In the Vercel Project Dashboard:
 1. Navigate to **Settings** → **Environment Variables**.
-2. Add the following production variables:
-
-| Variable Name | Environment | Value | Description |
-| :--- | :--- | :--- | :--- |
-| `AGENTSHIELD_ENV` | Production, Preview | `production` | Enforces production security checks. |
-| `AGENTSHIELD_ADMIN_KEY` | Production, Preview | *(Secret 32+ char token)* | Required for administrative actions. |
-| `AGENTSHIELD_SESSION_SECRET` | Production, Preview | *(Secret 32+ char token)* | Signs session cookies. |
-| `AGENTSHIELD_STORAGE_BACKEND` | Production, Preview | `postgres` | Enables PostgreSQL persistence. |
-| `DATABASE_URL` | Production, Preview | `postgresql://...` | Connection URL to your PostgreSQL instance. |
-| `GEMINI_API_KEY` | Production, Preview | `AIzaSy...` | (Optional) Gemini API key for Security Analyst. |
-| `AGENTSHIELD_ANALYST_PROVIDER` | Production, Preview | `gemini` (or `mock`) | LLM provider selection. |
-| `AGENTSHIELD_ALLOW_MOCK_FALLBACK` | Production, Preview | `true` | Permits graceful degradation if Gemini fails. |
-| `AGENTSHIELD_READONLY` | Production | `false` (or `true` for public demo) | Controls state mutation permissions. |
-| `AGENTSHIELD_CORS_ORIGINS` | Production | `https://your-domain.vercel.app` | Exact production URL of your deployment. |
-
-### 3. Deploying via Vercel CLI
-
-Alternatively, configure and deploy using the Vercel CLI:
-
-```bash
-# Add secrets interactively
-vercel env add AGENTSHIELD_ADMIN_KEY production
-vercel env add DATABASE_URL production
-vercel env add GEMINI_API_KEY production
-
-# Deploy to production
-vercel --prod
-```
-
----
-
-## Dashboard Settings & Telemetry
-
-The AgentShield dashboard includes a **SETTINGS** stream tab located in the Telemetry window:
-
-1. **Terminal-Style Parameter Display**: Displays non-sensitive operational limits, active environment, storage backend, rate limits, and policy hash.
-2. **Secret Hygiene**: Secret keys, credentials, and passwords are strictly excluded from client memory, HTTP responses, and browser storage.
-3. **Admin Control**: Sign in via `[admin sign in]` using your `AGENTSHIELD_ADMIN_KEY` to view live configuration details.
+2. Add the production variables (`AGENTSHIELD_ENV=production`, `AGENTSHIELD_ADMIN_KEY`, `AGENTSHIELD_STORAGE_BACKEND=postgres`, `DATABASE_URL`, `GEMINI_API_KEY`, `AGENTSHIELD_CORS_ORIGINS`).
 
 ---
 
