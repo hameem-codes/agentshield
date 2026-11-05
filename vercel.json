@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "version": 2,
+  "buildCommand": "cd frontend && npm ci && npm run build",
+  "outputDirectory": "frontend/dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -13,11 +13,11 @@
       "destination": "/api/index.py"
     },
     {
-      "source": "/(audit|incident|health|risk|policies|simulator)/(.*)",
+      "source": "/(audit|incident|health)/(.*)",
       "destination": "/api/index.py"
     },
     {
-      "source": "/((?!api/|health|events|check|authorize|execute|metrics|audit|incident|risk|policies|simulator).*)",
+      "source": "/((?!api/|health|events|check|authorize|execute|metrics|audit/|incident/).*)",
       "destination": "/index.html"
     }
   ]
